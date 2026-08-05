@@ -1,0 +1,8 @@
+<include>
+  <!-- Copy these X-PRE-PROCESS entries inside conf/vars.xml. -->
+  <X-PRE-PROCESS cmd="set" data="external_sip_ip=16.176.236.109"/>
+  <X-PRE-PROCESS cmd="set" data="external_rtp_ip=16.176.236.109"/>
+  <X-PRE-PROCESS cmd="set" data="zcc_domain=4598831758752463028.zcc.openapi.zaloapp.com"/>
+  <X-PRE-PROCESS cmd="set" data="zcc_oa_id=2565558072518292002"/>
+  <X-PRE-PROCESS cmd="set" data="zcc_inbound_id=2565558072518292002101"/>
+</include>

@@ -1,0 +1,16 @@
+<include>
+  <user id="1001">
+    <!-- Replace before production. Never commit the real password. -->
+    <params>
+      <param name="password" value="Anhdung2003@"/>
+      <param name="vm-password" value="1001"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international"/>
+      <variable name="accountcode" value="1001"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="SimlyDent 1001"/>
+      <variable name="effective_caller_id_number" value="1001"/>
+    </variables>
+  </user>
+</include>

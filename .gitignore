@@ -1,0 +1,10 @@
+.env
+node_modules/
+coverage/
+*.log
+
+# Secrets and deployment credentials
+deploy/key/
+*.pem
+*.key
+.github/*.local

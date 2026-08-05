@@ -1,0 +1,11 @@
+<include>
+  <context name="zcc">
+    <extension name="zcc-inbound-route-101">
+      <condition field="destination_number" expression="^$${zcc_inbound_id}$">
+        <action application="set" data="absolute_codec_string=PCMU"/>
+        <action application="set" data="hangup_after_bridge=true"/>
+        <action application="bridge" data="user/1001"/>
+      </condition>
+    </extension>
+  </context>
+</include>

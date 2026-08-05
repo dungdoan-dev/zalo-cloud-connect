@@ -1,0 +1,49 @@
+name: Deploy SimlyDent ZCC
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Configure SSH
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$EC2_SSH_KEY" > "$HOME/.ssh/ec2_key"
+          chmod 600 "$HOME/.ssh/ec2_key"
+          ssh-keyscan -H "$EC2_HOST" >> "$HOME/.ssh/known_hosts"
+      - name: Upload source
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          rsync -az --delete \
+            --exclude '.git/' --exclude '.env' --exclude 'node_modules/' \
+            --exclude 'deploy/key/' \
+            -e "ssh -i $HOME/.ssh/ec2_key -o StrictHostKeyChecking=yes" \
+            ./ "$EC2_USER@$EC2_HOST:/opt/simlydent/"
+      - name: Install and restart services
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i "$HOME/.ssh/ec2_key" -o StrictHostKeyChecking=yes \
+            "$EC2_USER@$EC2_HOST" \
+            'sudo /opt/simlydent/deploy/deploy-remote.sh'

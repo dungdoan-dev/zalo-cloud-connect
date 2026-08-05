@@ -1,0 +1,19 @@
+[Unit]
+Description=SimlyDent ZCC Node application
+After=network-online.target freeswitch.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=simlydent
+Group=simlydent
+WorkingDirectory=/opt/simlydent
+EnvironmentFile=-/etc/simlydent.env
+ExecStart=/usr/bin/node /opt/simlydent/src/server.js
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=FreeSWITCH ZCC SIP server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freeswitch
+Group=freeswitch
+ExecStart=/usr/local/freeswitch/bin/freeswitch -nf -nonat
+ExecStop=/usr/local/freeswitch/bin/fs_cli -x shutdown
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

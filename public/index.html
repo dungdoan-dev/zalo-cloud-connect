@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zalo Cloud Connect — Call Center Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-main: #07090e;
+    --bg-side: #0c0f17;
+    --surface-1: #121624;
+    --surface-2: #1a2032;
+    --surface-3: #242c44;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(0, 104, 255, 0.4);
+    
+    --zalo-blue: #0068FF;
+    --zalo-blue-hover: #1b75ff;
+    --zalo-blue-glow: rgba(0, 104, 255, 0.35);
+    
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.3);
+    --danger: #f43f5e;
+    --danger-glow: rgba(244, 63, 94, 0.35);
+    --warning: #f59e0b;
+    --warning-glow: rgba(245, 158, 11, 0.3);
+    --info: #3b82f6;
+    
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    
+    --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--font-main);
+    background-color: var(--bg-main);
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(0, 104, 255, 0.12) 0%, transparent 60%),
+      radial-gradient(circle at 85% 90%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    height: 64px;
+    padding: 0 28px;
+    background: rgba(12, 15, 23, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #0068FF, #0042a5);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px var(--zalo-blue-glow);
+    color: #fff;
+  }
+
+  .brand-logo svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+  }
+
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .brand-title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge-pro {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 104, 255, 0.2);
+    color: #60a5fa;
+    border: 1px solid rgba(0, 104, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .brand-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .header-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--surface-1);
+    border: 1px solid var(--border-color);
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
+    animation: pulse 2s infinite;
+  }
+
+  .pulse-dot.offline {
+    background: var(--danger);
+    box-shadow: 0 0 10px var(--danger);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .sys-info-chip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.03);
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+  }
+
+  /* ── Layout Container ── */
+  .app-container {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    flex: 1;
+    min-height: calc(100vh - 64px);
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    background: var(--bg-side);
+    border-right: 1px solid var(--border-color);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  /* ── Cards ── */
+  .glass-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title icon {
+    font-size: 14px;
+  }
+
+  /* ── Tabs inside card ── */
+  .card-tabs {
+    display: flex;
+    background: var(--surface-2);
+    padding: 3px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+  }
+
+  .card-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .card-tab.active {
+    background: var(--zalo-blue);
+    color: #fff;
+    box-shadow: 0 2px 10px var(--zalo-blue-glow);
+  }
+
+  /* ── Forms ── */
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-control {
+    width: 100%;
+    height: 42px;
+    padding: 0 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .input-control:focus {
+    border-color: var(--zalo-blue);
+    background: var(--surface-3);
+    box-shadow: 0 0 0 3px var(--zalo-blue-glow);
+  }
+
+  .input-control::placeholder {
+    color: var(--text-muted);
+  }
+
+  .input-action-btn {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+  }
+
+  .input-action-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.06);
+  }
+
+  select.input-control {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%94a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+
+  /* ── Softphone Dialpad ── */
+  .dialpad-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 14px;
+  }
+
+  .dial-btn {
+    height: 44px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .dial-btn:hover {
+    background: var(--surface-3);
+    border-color: var(--zalo-blue);
+    color: #fff;
+  }
+
+  .dial-btn:active {
+    transform: scale(0.95);
+    background: var(--zalo-blue);
+  }
+
+  .dial-sub {
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-top: -2px;
+  }
+
+  /* ── Action Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-family: var(--font-main);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn-primary {
+    background: var(--zalo-blue);
+    color: #fff;
+    box-shadow: 0 4px 16px var(--zalo-blue-glow);
+  }
+
+  .btn-primary:hover {
+    background: var(--zalo-blue-hover);
+    box-shadow: 0 6px 20px var(--zalo-blue-glow);
+  }
+
+  .btn-secondary {
+    background: var(--surface-2);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--surface-3);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-outline-zalo {
+    background: rgba(0, 104, 255, 0.1);
+    border-color: rgba(0, 104, 255, 0.3);
+    color: #60a5fa;
+  }
+
+  .btn-outline-zalo:hover {
+    background: rgba(0, 104, 255, 0.2);
+    border-color: var(--zalo-blue);
+  }
+
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+    box-shadow: 0 4px 16px var(--danger-glow);
+  }
+
+  .btn-danger:hover {
+    background: #e11d48;
+  }
+
+  .btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  /* ── Presets / Quick Chips ── */
+  .presets-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .preset-chip {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .preset-chip:hover {
+    border-color: var(--zalo-blue);
+    color: #fff;
+    background: rgba(0, 104, 255, 0.15);
+  }
+
+  /* ── Response Code Box ── */
+  .code-response-box {
+    margin-top: 12px;
+    background: #090c14;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #a7f3d0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* ── Main Panel ── */
+  main {
+    display: flex;
+    flex-direction: column;
+    padding: 28px;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  /* ── Softphone / Live Call Console ── */
+  .call-console-card {
+    background: linear-gradient(180deg, var(--surface-1) 0%, rgba(18, 22, 36, 0.6) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 36px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .call-console-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--zalo-blue), transparent);
+    opacity: 0.6;
+  }
+
+  /* Status Badge Banner */
+  .live-status-badge {
+    padding: 8px 20px;
+    border-radius: 99px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .live-status-badge.idle {
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+  }
+  .live-status-badge.calling {
+    color: var(--warning);
+    border-color: var(--warning);
+    background: rgba(245, 158, 11, 0.12);
+  }
+  .live-status-badge.ringing {
+    color: #60a5fa;
+    border-color: var(--zalo-blue);
+    background: rgba(0, 104, 255, 0.15);
+    box-shadow: 0 0 20px var(--zalo-blue-glow);
+  }
+  .live-status-badge.connected {
+    color: var(--success);
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 20px var(--success-glow);
+  }
+  .live-status-badge.failed {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(244, 63, 94, 0.15);
+  }
+
+  /* Callee Avatar & Details */
+  .callee-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 24px;
+    transition: all 0.3s;
+  }
+
+  .avatar-ring {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    font-size: 32px;
+    color: var(--zalo-blue);
+    position: relative;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .callee-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    font-family: var(--font-mono);
+  }
+
+  .callee-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* Call Button Area */
+  .call-btn-container {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0 24px 0;
+  }
+
+  .ripple-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--zalo-blue);
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .state-ringing .ripple-ring-1 {
+    animation: ripple 1.8s infinite cubic-bezier(0, 0.2, 0.8, 1);
+  }
+  .state-ringing .ripple-ring-2 {
+    animation: ripple 1.8s infinite cubic-bezier(0, 0.2, 0.8, 1);
+    animation-delay: 0.6s;
+  }
+
+  @keyframes ripple {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+
+  #call-btn {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    font-size: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px var(--success-glow);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    z-index: 2;
+  }
+
+  #call-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 14px 40px var(--success-glow);
+  }
+
+  #call-btn:active {
+    transform: scale(0.94);
+  }
+
+  #call-btn.ringing {
+    background: linear-gradient(135deg, #0068FF, #1d4ed8);
+    box-shadow: 0 10px 30px var(--zalo-blue-glow);
+    animation: call-shake 0.5s infinite alternate ease-in-out;
+  }
+
+  #call-btn.connected {
+    background: linear-gradient(135deg, #f43f5e, #be123c);
+    box-shadow: 0 10px 30px var(--danger-glow);
+    animation: none;
+  }
+
+  #call-btn:disabled {
+    background: linear-gradient(135deg, #334155, #1e293b);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none !important;
+    opacity: 0.6;
+  }
+
+  @keyframes call-shake {
+    0% { transform: rotate(-6deg) scale(1.02); }
+    100% { transform: rotate(6deg) scale(1.02); }
+  }
+
+  /* LED Digital Timer */
+  .digital-timer {
+    font-family: var(--font-mono);
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: #fff;
+    text-shadow: 0 0 16px rgba(255, 255, 255, 0.2);
+    display: none;
+    margin-bottom: 12px;
+  }
+
+  .state-connected .digital-timer {
+    display: block;
+  }
+
+  /* Audio Wave Visualizer */
+  .audio-wave-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    margin-bottom: 16px;
+    opacity: 0.2;
+    transition: opacity 0.3s;
+  }
+
+  .state-connected .audio-wave-bar {
+    opacity: 1;
+  }
+
+  .wave-col {
+    width: 4px;
+    height: 100%;
+    background: var(--zalo-blue);
+    border-radius: 4px;
+    animation: wave-anim 1.2s infinite ease-in-out alternate;
+  }
+
+  .wave-col:nth-child(1) { animation-delay: 0.1s; height: 30%; }
+  .wave-col:nth-child(2) { animation-delay: 0.3s; height: 70%; }
+  .wave-col:nth-child(3) { animation-delay: 0.2s; height: 100%; }
+  .wave-col:nth-child(4) { animation-delay: 0.4s; height: 50%; }
+  .wave-col:nth-child(5) { animation-delay: 0.15s; height: 85%; }
+  .wave-col:nth-child(6) { animation-delay: 0.35s; height: 40%; }
+
+  @keyframes wave-anim {
+    0% { transform: scaleY(0.2); }
+    100% { transform: scaleY(1); }
+  }
+
+  /* Network / RTP Meta Info */
+  .rtp-meta-info {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 14px;
+    border-radius: 99px;
+    border: 1px solid var(--border-color);
+  }
+
+  /* ── SIP Logs Console Section ── */
+  .logs-card {
+    flex: 1;
+    background: var(--surface-1);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 280px;
+  }
+
+  .logs-header {
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logs-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .log-counter {
+    font-size: 11px;
+    background: var(--surface-2);
+    padding: 2px 8px;
+    border-radius: 99px;
+    color: var(--text-muted);
+  }
+
+  .logs-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-icon:hover {
+    background: var(--surface-2);
+    color: #fff;
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  /* Log list */
+  .logs-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    display: flex;
+    flex-direction: column-reverse; /* Latest at top */
+    gap: 6px;
+  }
+
+  .log-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.15s;
+  }
+
+  .log-item:hover {
+    background: var(--surface-2);
+  }
+
+  .log-time {
+    color: var(--text-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .log-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .badge-1xx { background: rgba(100, 116, 139, 0.25); color: #cbd5e1; }
+  .badge-18x { background: rgba(0, 104, 255, 0.2); color: #60a5fa; }
+  .badge-2xx { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+  .badge-4xx, .badge-5xx { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
+
+  .log-msg {
+    color: var(--text-primary);
+    word-break: break-all;
+  }
+
+  .log-event-text {
+    color: #fde047;
+    font-style: italic;
+  }
+
+  /* ── Toast Notifications ── */
+  .toast-container {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+
+  .toast {
+    pointer-events: auto;
+    min-width: 300px;
+    max-width: 400px;
+    padding: 14px 18px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    background: rgba(18, 22, 36, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .toast.ok {
+    border-color: var(--success);
+    color: #a7f3d0;
+  }
+
+  .toast.err {
+    border-color: var(--danger);
+    color: #fecdd3;
+  }
+
+  .toast-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 900px) {
+    .app-container {
+      grid-template-columns: 1fr;
+    }
+    aside {
+      border-right: none;
+      border-bottom: 1px solid var(--border-color);
+    }
+    header {
+      padding: 0 16px;
+    }
+    .header-status-bar {
+      display: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-logo">
+      <svg viewBox="0 0 24 24">
+        <path d="M20 15.5c-1.2 0-2.4-.2-3.6-.6-.4-.1-.8 0-1.1.3l-2.2 2.2c-2.8-1.4-5.1-3.8-6.6-6.6l2.2-2.2c.3-.3.4-.7.3-1.1C8.6 6.3 8.4 5.1 8.4 3.9c0-.5-.4-.9-.9-.9H4c-.5 0-.9.4-.9.9C3.1 13.6 10.4 21 19.5 21c.5 0 .9-.4.9-.9v-3.6c0-.5-.4-.9-.9-.9z"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-title">
+        Zalo Cloud Connect
+        <span class="badge-pro">PRO SIP</span>
+      </div>
+      <div class="brand-subtitle">Console Tích Hợp Cuộc Gọi Zalo Business</div>
+    </div>
+  </div>
+
+  <div class="header-status-bar">
+    <div class="status-pill">
+      <span class="pulse-dot" id="sse-indicator"></span>
+      <span id="sse-label">SSE: Kết nối</span>
+    </div>
+
+    <div class="sys-info-chip" id="app-info-chip">App ID: —</div>
+    <div class="sys-info-chip" id="oa-info-chip">OA ID: —</div>
+  </div>
+</header>
+
+<div class="app-container">
+  <!-- ── Left Sidebar (Controls) ── -->
+  <aside>
+
+    <!-- Navigation Card Tabs -->
+    <div class="glass-card">
+      <div class="card-tabs">
+        <div class="card-tab active" onclick="switchSideTab('dialer')">📞 Gọi Đi</div>
+        <div class="card-tab" onclick="switchSideTab('consent')">🔑 Consent</div>
+      </div>
+
+      <!-- TAB 1: DIALER -->
+      <div id="tab-dialer">
+        <div class="form-group">
+          <label class="form-label">Zalo User ID (Callee)</label>
+          <div class="input-wrapper">
+            <input id="callee-id" class="input-control" type="text" placeholder="Nhập Zalo User ID (VD: 6724337225...)" autocomplete="off">
+            <button class="input-action-btn" title="Xoá nhanh" onclick="document.getElementById('callee-id').value=''; document.getElementById('callee-id').focus();">✕</button>
+          </div>
+        </div>
+
+        <!-- Dialpad Grid -->
+        <div class="dialpad-grid">
+          <button class="dial-btn" onclick="appendDial('1')">1 <span class="dial-sub">&nbsp;</span></button>
+          <button class="dial-btn" onclick="appendDial('2')">2 <span class="dial-sub">ABC</span></button>
+          <button class="dial-btn" onclick="appendDial('3')">3 <span class="dial-sub">DEF</span></button>
+          <button class="dial-btn" onclick="appendDial('4')">4 <span class="dial-sub">GHI</span></button>
+          <button class="dial-btn" onclick="appendDial('5')">5 <span class="dial-sub">JKL</span></button>
+          <button class="dial-btn" onclick="appendDial('6')">6 <span class="dial-sub">MNO</span></button>
+          <button class="dial-btn" onclick="appendDial('7')">7 <span class="dial-sub">PQRS</span></button>
+          <button class="dial-btn" onclick="appendDial('8')">8 <span class="dial-sub">TUV</span></button>
+          <button class="dial-btn" onclick="appendDial('9')">9 <span class="dial-sub">WXYZ</span></button>
+          <button class="dial-btn" onclick="appendDial('*')">*</button>
+          <button class="dial-btn" onclick="appendDial('0')">0 <span class="dial-sub">+</span></button>
+          <button class="dial-btn" onclick="appendDial('#')">#</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Thời gian chờ chuông (Ring Timeout)</label>
+          <select id="ring-timeout" class="input-control">
+            <option value="30000">30 giây</option>
+            <option value="60000" selected>60 giây (Mặc định)</option>
+            <option value="90000">90 giây</option>
+            <option value="120000">120 giây</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Mẫu User ID thử nghiệm</label>
+          <div class="presets-wrap">
+            <span class="preset-chip" onclick="setPresetId('672433722530428169')">Test ID 1</span>
+            <span class="preset-chip" onclick="pasteFromClipboard()">📋 Dán từ Clipboard</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: CONSENT API -->
+      <div id="tab-consent" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Số điện thoại (Quốc tế)</label>
+          <input id="consent-phone" class="input-control" type="tel" placeholder="84xxxxxxxxx (VD: 84988888888)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Loại cuộc gọi (Call Type)</label>
+          <select id="consent-type" class="input-control">
+            <option value="audio">Audio (Thoại thanh)</option>
+            <option value="video">Video (Thoại hình)</option>
+            <option value="audio_and_video">Audio & Video</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mã lý do cuộc gọi (Reason Code)</label>
+          <select id="consent-reason" class="input-control">
+            <option value="101">101 – Tư vấn sản phẩm / dịch vụ</option>
+            <option value="103">103 – Xác nhận đơn hàng / lịch hẹn</option>
+            <option value="105">105 – Thông báo giao hàng (Logistics)</option>
+            <option value="106">106 – Thông báo chuyến bay</option>
+            <option value="107">107 – Cập nhật trạng thái đơn hàng</option>
+          </select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-outline-zalo" onclick="requestConsent()">📨 Xin Consent</button>
+          <button class="btn btn-secondary" onclick="checkConsent()">🔍 Kiểm Tra</button>
+        </div>
+
+        <!-- Result Box -->
+        <div id="consent-result-container" style="display: none;">
+          <div class="code-response-box" id="consent-result"></div>
+        </div>
+      </div>
+
+    </div>
+
+  </aside>
+
+  <!-- ── Main Workspace ── -->
+  <main>
+    <!-- Softphone Console Card -->
+    <section class="call-console-card" id="call-area">
+      <!-- Status Badge -->
+      <div id="status-badge" class="live-status-badge idle">
+        <span class="pulse-dot"></span>
+        <span id="status-badge-text">🟢 Sẵn sàng cuộc gọi</span>
+      </div>
+
+      <!-- Callee Profile Display -->
+      <div class="callee-profile" id="callee-display" style="display: none;">
+        <div class="avatar-ring">
+          👤
+        </div>
+        <div class="callee-title" id="callee-name">—</div>
+        <div class="callee-subtitle">Zalo User ID Target</div>
+      </div>
+
+      <!-- Big Call Button with Ripple Rings -->
+      <div class="call-btn-container">
+        <div class="ripple-ring ripple-ring-1"></div>
+        <div class="ripple-ring ripple-ring-2"></div>
+        <button id="call-btn" onclick="toggleCall()" title="Bắt đầu gọi / Kết thúc">📞</button>
+      </div>
+
+      <!-- Call Timer -->
+      <div class="digital-timer" id="timer">00:00</div>
+
+      <!-- Animated Audio Wave indicator -->
+      <div class="audio-wave-bar">
+        <div class="wave-col"></div>
+        <div class="wave-col"></div>
+        <div class="wave-col"></div>
+        <div class="wave-col"></div>
+        <div class="wave-col"></div>
+        <div class="wave-col"></div>
+      </div>
+
+      <!-- Network / RTP Stream Info -->
+      <div class="rtp-meta-info" id="rtp-info">Codec: PCMU 8kHz | RTP: Idle</div>
+    </section>
+
+    <!-- SIP Engine Logs Panel -->
+    <section class="logs-card">
+      <div class="logs-header">
+        <div class="logs-title">
+          <span>⚡ Nhật ký cuộc gọi (SIP & Media Logs)</span>
+          <span class="log-counter" id="log-count">0 mục</span>
+        </div>
+        <div class="logs-actions">
+          <button class="btn-icon" onclick="copyLogs()">📋 Sao chép</button>
+          <button class="btn-icon" onclick="clearLog()">🗑️ Xoá nhật ký</button>
+        </div>
+      </div>
+      <div class="logs-body" id="log-list">
+        <!-- Log entries populated via JS -->
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Toast Stack Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ── Application State ──────────────────────────────────────────────────────────
+let state = 'idle'; // idle | calling | ringing | connected | failed
+let timerInterval = null;
+let callSeconds = 0;
+let mediaSocket = null;
+let audioContext = null;
+let micStream = null;
+let micSource = null;
+let micProcessor = null;
+let micMuteGain = null;
+let pendingPcm = [];
+let playbackTime = 0;
+let logCounter = 0;
+
+// ── SSE Realtime Stream ───────────────────────────────────────────────────────
+const evtSource = new EventSource('/events');
+
+evtSource.addEventListener('status', e => {
+  try {
+    const data = JSON.parse(e.data);
+    if (data.appId) document.getElementById('app-info-chip').textContent = `App ID: ${data.appId}`;
+    if (data.oaId) document.getElementById('oa-info-chip').textContent = `OA ID: ${data.oaId}`;
+  } catch (err) {}
+});
+
+evtSource.addEventListener('open', () => {
+  document.getElementById('sse-indicator').className = 'pulse-dot';
+  document.getElementById('sse-label').textContent = 'SSE: Kết nối';
+});
+
+evtSource.addEventListener('error', () => {
+  document.getElementById('sse-indicator').className = 'pulse-dot offline';
+  document.getElementById('sse-label').textContent = 'SSE: Mất kết nối';
+});
+
+evtSource.addEventListener('calling',   e => setState('calling',   JSON.parse(e.data)));
+evtSource.addEventListener('ringing',   e => setState('ringing',   JSON.parse(e.data)));
+evtSource.addEventListener('connected', e => setState('connected', JSON.parse(e.data)));
+evtSource.addEventListener('ended',     e => setState('idle',      JSON.parse(e.data)));
+evtSource.addEventListener('failed',    e => setState('failed',    JSON.parse(e.data)));
+evtSource.addEventListener('sip',       e => addLog(JSON.parse(e.data)));
+
+// ── Tab Switcher ──────────────────────────────────────────────────────────────
+function switchSideTab(tabName) {
+  const tabs = document.querySelectorAll('.card-tab');
+  tabs[0].classList.toggle('active', tabName === 'dialer');
+  tabs[1].classList.toggle('active', tabName === 'consent');
+
+  document.getElementById('tab-dialer').style.display = tabName === 'dialer' ? 'block' : 'none';
+  document.getElementById('tab-consent').style.display = tabName === 'consent' ? 'block' : 'none';
+}
+
+function appendDial(digit) {
+  const input = document.getElementById('callee-id');
+  input.value += digit;
+  input.focus();
+}
+
+function setPresetId(id) {
+  document.getElementById('callee-id').value = id;
+  showToast(`✅ Đã chọn User ID: ${id}`, 'ok');
+}
+
+async function pasteFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      document.getElementById('callee-id').value = text.trim();
+      showToast('📋 Đã dán từ clipboard!', 'ok');
+    }
+  } catch (err) {
+    showToast('⚠️ Không thể đọc clipboard', 'err');
+  }
+}
+
+// ── State Machine UI Controller ───────────────────────────────────────────────
+function setState(newState, data = {}) {
+  state = newState;
+  const badge       = document.getElementById('status-badge');
+  const badgeText   = document.getElementById('status-badge-text');
+  const btn         = document.getElementById('call-btn');
+  const area        = document.getElementById('call-area');
+  const display     = document.getElementById('callee-display');
+  const rtpInfo     = document.getElementById('rtp-info');
+  const calleeName  = document.getElementById('callee-name');
+
+  area.className = 'call-console-card';
+  badge.className = 'live-status-badge ' + newState;
+
+  const labels = {
+    idle:      '🟢 Sẵn sàng cuộc gọi',
+    calling:   '⏳ Đang khởi tạo kết nối SIP...',
+    ringing:   '🔔 Đang đổ chuông thiết bị...',
+    connected: '✅ Cuộc gọi thoại đang kết nối',
+    failed:    '❌ Cuộc gọi thất bại',
+  };
+  badgeText.textContent = labels[newState] || newState;
+
+  if (newState === 'idle' || newState === 'failed') {
+    btn.textContent = '📞';
+    btn.className   = '';
+    btn.disabled    = false;
+    display.style.display = 'none';
+    rtpInfo.textContent = 'Codec: PCMU 8kHz | RTP: Idle';
+    stopTimer();
+    stopMedia();
+    if (newState === 'failed') {
+      showToast('❌ ' + (data.message || 'Cuộc gọi thất bại'), 'err');
+    } else if (data.reason) {
+      addLogEvent(`Cuộc gọi kết thúc: ${data.reason}`);
+    }
+  } else if (newState === 'calling') {
+    btn.textContent = '⏳';
+    btn.className   = '';
+    btn.disabled    = true;
+    display.style.display = 'flex';
+    calleeName.textContent = data.toUri?.match(/sip:(\d+)@/)?.[1] || document.getElementById('callee-id').value || '—';
+    addLogEvent('Gửi SIP INVITE đến Zalo Cloud Connect...');
+  } else if (newState === 'ringing') {
+    area.classList.add('state-ringing');
+    btn.textContent = '📳';
+    btn.className   = 'ringing';
+    btn.disabled    = false;
+  } else if (newState === 'connected') {
+    btn.textContent = '📴';
+    btn.className   = 'connected';
+    btn.disabled    = false;
+    area.classList.add('state-connected');
+    rtpInfo.textContent = `Codec: PCMU 8kHz | RTP Remote: ${data.remoteRtpIp}:${data.remoteRtpPort}`;
+    startTimer();
+    showToast('✅ Cuộc gọi đã kết nối thành công!', 'ok');
+  }
+}
+
+// ── Timer Logic ───────────────────────────────────────────────────────────────
+function startTimer() {
+  callSeconds = 0;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => { callSeconds++; updateTimerDisplay(); }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  document.getElementById('timer').textContent = '00:00';
+}
+
+function updateTimerDisplay() {
+  const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+  const s = String(callSeconds % 60).padStart(2, '0');
+  document.getElementById('timer').textContent = `${m}:${s}`;
+}
+
+// ── Call Handler ──────────────────────────────────────────────────────────────
+async function toggleCall() {
+  if (state === 'connected' || state === 'ringing') {
+    await fetch('/api/hangup', { method: 'POST' });
+    return;
+  }
+
+  const callee = document.getElementById('callee-id').value.trim();
+  if (!callee) {
+    showToast('⚠️ Vui lòng nhập Zalo User ID trước!', 'err');
+    document.getElementById('callee-id').focus();
+    return;
+  }
+
+  try {
+    await startMedia();
+  } catch (error) {
+    setState('failed', { message: `Không thể mở Microphone: ${error.message}` });
+    return;
+  }
+
+  setState('calling', { toUri: `sip:${callee}@...` });
+  const res = await fetch('/api/call', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      callee,
+      ringTimeout: parseInt(document.getElementById('ring-timeout').value) || 60000,
+      callDuration: 0,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    setState('failed', { message: err.error });
+  }
+}
+
+// ── Web Audio & WebSocket Media ───────────────────────────────────────────────
+async function startMedia() {
+  if (mediaSocket?.readyState === WebSocket.OPEN && micStream) return;
+
+  audioContext = audioContext || new AudioContext({ latencyHint: 'interactive' });
+  await audioContext.resume();
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+    video: false,
+  });
+
+  const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  mediaSocket = new WebSocket(`${wsProtocol}//${location.host}/media`);
+  mediaSocket.binaryType = 'arraybuffer';
+  mediaSocket.onmessage = (event) => playUlaw(new Uint8Array(event.data));
+  mediaSocket.onerror = () => addLogEvent('WebSocket media gặp lỗi.');
+  
+  await new Promise((resolve, reject) => {
+    mediaSocket.onopen = resolve;
+    mediaSocket.onclose = () => reject(new Error('Media WebSocket kết nối thất bại.'));
+  });
+
+  micSource = audioContext.createMediaStreamSource(micStream);
+  micProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+  micMuteGain = audioContext.createGain();
+  micMuteGain.gain.value = 0;
+  
+  micProcessor.onaudioprocess = ({ inputBuffer }) => {
+    if (mediaSocket?.readyState !== WebSocket.OPEN) return;
+    const pcm8k = downsampleTo8k(inputBuffer.getChannelData(0), audioContext.sampleRate);
+    for (const sample of pcm8k) pendingPcm.push(sample);
+    while (pendingPcm.length >= 160) {
+      const frame = new ArrayBuffer(320);
+      const view = new DataView(frame);
+      for (let i = 0; i < 160; i++) view.setInt16(i * 2, pendingPcm[i], true);
+      pendingPcm.splice(0, 160);
+      mediaSocket.send(frame);
+    }
+  };
+
+  micSource.connect(micProcessor);
+  micProcessor.connect(micMuteGain);
+  micMuteGain.connect(audioContext.destination);
+  addLogEvent(`Microphone ${Math.round(audioContext.sampleRate)}Hz → PCMU 8kHz sẵn sàng.`);
+}
+
+function stopMedia() {
+  micProcessor?.disconnect();
+  micSource?.disconnect();
+  micMuteGain?.disconnect();
+  for (const track of micStream?.getTracks?.() || []) track.stop();
+  if (mediaSocket && mediaSocket.readyState < WebSocket.CLOSING) mediaSocket.close();
+  mediaSocket = null;
+  micStream = null;
+  micSource = null;
+  micProcessor = null;
+  micMuteGain = null;
+  pendingPcm = [];
+  playbackTime = 0;
+  if (audioContext && audioContext.state !== 'closed') void audioContext.close();
+  audioContext = null;
+}
+
+function downsampleTo8k(input, inputRate) {
+  const ratio = inputRate / 8000;
+  const output = new Int16Array(Math.floor(input.length / ratio));
+  for (let outIndex = 0; outIndex < output.length; outIndex++) {
+    const start = Math.floor(outIndex * ratio);
+    const end = Math.max(start + 1, Math.floor((outIndex + 1) * ratio));
+    let sum = 0;
+    for (let index = start; index < end && index < input.length; index++) sum += input[index];
+    const sample = Math.max(-1, Math.min(1, sum / (end - start)));
+    output[outIndex] = sample < 0 ? sample * 32768 : sample * 32767;
+  }
+  return output;
+}
+
+function ulawToFloat(byte) {
+  const value = (~byte) & 0xff;
+  const sign = value & 0x80;
+  const exponent = (value >> 4) & 0x07;
+  const mantissa = value & 0x0f;
+  const magnitude = (((mantissa << 3) + 0x84) << exponent) - 0x84;
+  return (sign ? -magnitude : magnitude) / 32768;
+}
+
+function playUlaw(payload) {
+  if (!audioContext || audioContext.state === 'closed' || payload.length === 0) return;
+  const buffer = audioContext.createBuffer(1, payload.length, 8000);
+  const channel = buffer.getChannelData(0);
+  for (let index = 0; index < payload.length; index++) channel[index] = ulawToFloat(payload[index]);
+
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioContext.destination);
+  const now = audioContext.currentTime;
+  if (playbackTime < now || playbackTime - now > 0.5) playbackTime = now + 0.04;
+  source.start(playbackTime);
+  playbackTime += buffer.duration;
+}
+
+// ── Consent Management ────────────────────────────────────────────────────────
+async function requestConsent() {
+  const phone = document.getElementById('consent-phone').value.trim();
+  if (!phone) { showToast('⚠️ Nhập số điện thoại cần xin consent!', 'err'); return; }
+
+  const res = await fetch('/api/request-consent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      phone,
+      callType:   document.getElementById('consent-type').value,
+      reasonCode: document.getElementById('consent-reason').value,
+    }),
+  });
+  const data = await res.json();
+  showConsentResult(data);
+  if (data.error === 0) showToast('✅ Gửi yêu cầu consent thành công!', 'ok');
+  else if (data.error === 1) showToast('ℹ️ Người dùng đã đồng ý consent rồi', 'ok');
+  else showToast('❌ ' + (data.message || data.error), 'err');
+}
+
+async function checkConsent() {
+  const phone = document.getElementById('consent-phone').value.trim();
+  if (!phone) { showToast('⚠️ Nhập số điện thoại cần kiểm tra!', 'err'); return; }
+
+  const res = await fetch('/api/check-consent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+  });
+  const data = await res.json();
+  showConsentResult(data);
+  if (data.error === 0) {
+    const exp = data.data?.expired_time ? new Date(data.data.expired_time).toLocaleString('vi-VN') : '—';
+    showToast(`✅ Đã đồng ý consent (Hết hạn: ${exp})`, 'ok');
+  } else {
+    showToast('❌ ' + (data.message || 'Chưa có consent'), 'err');
+  }
+}
+
+function showConsentResult(data) {
+  const card = document.getElementById('consent-result-container');
+  const pre  = document.getElementById('consent-result');
+  card.style.display = 'block';
+  pre.textContent = JSON.stringify(data, null, 2);
+}
+
+// ── SIP Engine Logs ───────────────────────────────────────────────────────────
+function addLog({ status, reason }) {
+  const list = document.getElementById('log-list');
+  const div  = document.createElement('div');
+  div.className = 'log-item';
+
+  let badgeCls = 'badge-1xx';
+  if (status >= 180 && status < 200) badgeCls = 'badge-18x';
+  else if (status >= 200 && status < 300) badgeCls = 'badge-2xx';
+  else if (status >= 400 && status < 500) badgeCls = 'badge-4xx';
+  else if (status >= 500) badgeCls = 'badge-5xx';
+
+  div.innerHTML = `
+    <span class="log-time">${new Date().toLocaleTimeString('vi-VN')}</span>
+    <span class="log-badge ${badgeCls}">${status}</span>
+    <span class="log-msg">${reason}</span>
+  `;
+
+  list.insertBefore(div, list.firstChild);
+  updateLogCounter();
+}
+
+function addLogEvent(msg) {
+  const list = document.getElementById('log-list');
+  const div  = document.createElement('div');
+  div.className = 'log-item';
+  div.innerHTML = `
+    <span class="log-time">${new Date().toLocaleTimeString('vi-VN')}</span>
+    <span class="log-badge badge-1xx">INFO</span>
+    <span class="log-msg log-event-text">${msg}</span>
+  `;
+  list.insertBefore(div, list.firstChild);
+  updateLogCounter();
+}
+
+function updateLogCounter() {
+  logCounter++;
+  document.getElementById('log-count').textContent = `${logCounter} mục`;
+}
+
+function clearLog() {
+  document.getElementById('log-list').innerHTML = '';
+  logCounter = 0;
+  document.getElementById('log-count').textContent = '0 mục';
+  showToast('🗑️ Đã xoá nhật ký cuộc gọi', 'ok');
+}
+
+function copyLogs() {
+  const text = Array.from(document.querySelectorAll('.log-item'))
+    .map(el => el.textContent.trim().replace(/\s+/g, ' '))
+    .join('\n');
+  if (!text) {
+    showToast('⚠️ Không có nhật ký để sao chép', 'err');
+    return;
+  }
+  navigator.clipboard.writeText(text);
+  showToast('📋 Đã sao chép nhật ký cuộc gọi!', 'ok');
+}
+
+// ── Toast Notification Engine ────────────────────────────────────────────────
+function showToast(msg, type = 'ok') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icon = type === 'ok' ? '✅' : '⚠️';
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span>${msg}</span>
+  `;
+
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    toast.style.transition = 'all 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+// ── Initialization ───────────────────────────────────────────────────────────
+addLogEvent('Hệ thống Zalo Cloud Connect UI Pro khởi động thành công.');
+</script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import { dirname, extname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { WebSocketServer } from 'ws';
+import { encodePcmToUlaw } from './codec.js';
+import { SipCaller } from './sip-caller.js';
+import { buildSipTarget, ZccClient } from './zcc-client.js';
+
+const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
+const INDEX_PATH = join(ROOT_DIR, '../public/index.html');
+const SOFTPHONE_PATH = join(ROOT_DIR, '../public/softphone.html');
+const PUBLIC_DIR = resolve(ROOT_DIR, '../public');
+const SIP_JS_DIR = resolve(ROOT_DIR, '../node_modules/sip.js/lib');
+const MAX_JSON_BYTES = 64 * 1024;
+
+const config = Object.freeze({
+  port: readIntegerEnv('PORT', 3000),
+  accessToken: process.env.ZALO_OA_ACCESS_TOKEN,
+  appId: process.env.ZALO_APP_ID,
+  oaId: process.env.ZALO_OA_ID,
+  publicIp: process.env.ZALO_PUBLIC_IP,
+  localIp: process.env.ZALO_LOCAL_IP,
+  rtpMinPort: readIntegerEnv('ZALO_RTP_MIN_PORT', 10000),
+  rtpMaxPort: readIntegerEnv('ZALO_RTP_MAX_PORT', 10100),
+  callEngine: process.env.CALL_ENGINE === 'freeswitch' ? 'freeswitch' : 'direct',
+  pbxWssUrl: process.env.PBX_WSS_URL || '',
+  pbxSipDomain: process.env.PBX_SIP_DOMAIN || '',
+});
+
+const sseClients = new Set();
+const mediaClients = new Set();
+let activeCaller = null;
+
+function readIntegerEnv(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) throw new TypeError(`${name} phải là số nguyên.`);
+  return parsed;
+}
+
+function toPositiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function toNonNegativeInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function sendJson(res, data, status = 200) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(data));
+}
+
+function sendError(res, error, status = 400) {
+  sendJson(res, { error: error.message, code: error.code }, status);
+}
+
+function contentType(path) {
+  return ({
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.map': 'application/json; charset=utf-8',
+  })[extname(path)] || 'application/octet-stream';
+}
+
+function sendFile(res, path) {
+  res.writeHead(200, { 'Content-Type': contentType(path), 'Cache-Control': 'no-cache' });
+  res.end(readFileSync(path));
+}
+
+function safeStaticPath(root, requestPath) {
+  const path = resolve(root, requestPath.replace(/^\/+/, ''));
+  const child = relative(root, path);
+  if (child.startsWith('..') || path === root) return null;
+  return path;
+}
+
+async function readJson(req) {
+  const chunks = [];
+  let totalBytes = 0;
+
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX_JSON_BYTES) throw new Error('Request body vượt quá 64 KB.');
+    chunks.push(chunk);
+  }
+
+  const raw = Buffer.concat(chunks).toString('utf8');
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error('Request body không phải JSON hợp lệ.');
+  }
+}
+
+function broadcast(event, data = {}) {
+  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) client.write(message);
+}
+
+function broadcastAudio(ulawPayload) {
+  for (const client of mediaClients) {
+    if (client.readyState === 1) client.send(ulawPayload, { binary: true });
+  }
+}
+
+function releaseCaller(caller) {
+  if (activeCaller === caller) activeCaller = null;
+}
+
+function createCaller(callee) {
+  const sip = buildSipTarget({ appId: config.appId, oaId: config.oaId, callee });
+  const caller = new SipCaller({
+    fromUri: sip.from,
+    domain: sip.domain,
+    port: sip.port,
+    localIp: config.localIp,
+    advertisedIp: config.publicIp,
+    rtpMinPort: config.rtpMinPort,
+    rtpMaxPort: config.rtpMaxPort,
+    transport: 'tcp',
+  });
+
+  caller.on('calling', ({ toUri }) => broadcast('calling', { toUri }));
+  caller.on('ringing', () => broadcast('ringing'));
+  caller.on('connected', (rtp) => {
+    caller.setAudioSink?.(broadcastAudio);
+    broadcast('connected', {
+      ...rtp,
+      publicIp: config.publicIp,
+      rtpMinPort: config.rtpMinPort,
+      rtpMaxPort: config.rtpMaxPort,
+    });
+  });
+  caller.on('ended', (data) => {
+    releaseCaller(caller);
+    broadcast('ended', data);
+  });
+  caller.on('failed', (error) => {
+    releaseCaller(caller);
+    broadcast('failed', { message: error.message });
+  });
+  caller.on('sip', (data) => broadcast('sip', data));
+
+  return { caller, sip };
+}
+
+async function handleRequest(req, res) {
+  const url = new URL(req.url, `http://localhost:${config.port}`);
+
+  if (req.method === 'GET' && url.pathname === '/') {
+    sendFile(res, INDEX_PATH);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/softphone') {
+    sendFile(res, SOFTPHONE_PATH);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/softphone.js') {
+    sendFile(res, join(PUBLIC_DIR, 'softphone.js'));
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/vendor/sip.js/')) {
+    const path = safeStaticPath(SIP_JS_DIR, url.pathname.slice('/vendor/sip.js/'.length));
+    if (!path) {
+      res.writeHead(404).end('Not found');
+      return;
+    }
+    sendFile(res, path);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/config') {
+    sendJson(res, {
+      callEngine: config.callEngine,
+      appId: config.appId,
+      oaId: config.oaId,
+      pbx: { wssUrl: config.pbxWssUrl, sipDomain: config.pbxSipDomain },
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/events') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+    res.write(`event: status\ndata: ${JSON.stringify({
+      hasCall: Boolean(activeCaller),
+      appId: config.appId,
+      callEngine: config.callEngine,
+      oaId: config.oaId ? `${config.oaId.slice(0, 6)}…` : undefined,
+    })}\n\n`);
+    sseClients.add(res);
+    req.on('close', () => sseClients.delete(res));
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/request-consent') {
+    const body = await readJson(req);
+    const client = new ZccClient({ accessToken: config.accessToken });
+    const result = await client.requestConsent({
+      phone: body.phone,
+      callType: body.callType || 'audio',
+      reasonCode: Number(body.reasonCode) || 101,
+    });
+    sendJson(res, result);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/check-consent') {
+    const body = await readJson(req);
+    const client = new ZccClient({ accessToken: config.accessToken });
+    sendJson(res, await client.checkConsent({ phone: body.phone }));
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/call') {
+    if (config.callEngine === 'freeswitch') {
+      sendJson(res, {
+        error: 'Chế độ FreeSWITCH sử dụng SIP.js tại /softphone để khởi tạo cuộc gọi.',
+        softphone: '/softphone',
+      }, 409);
+      return;
+    }
+
+    if (activeCaller) {
+      sendJson(res, { error: 'Đang có cuộc gọi khác hoạt động.' }, 409);
+      return;
+    }
+
+    const body = await readJson(req);
+    const { caller, sip } = createCaller(body.callee);
+    activeCaller = caller;
+    caller.call(sip.to, {
+      ringTimeout: toPositiveInteger(body.ringTimeout, 60_000),
+      callDuration: toNonNegativeInteger(body.callDuration, 0),
+    }).catch(() => {});
+    sendJson(res, { ok: true, to: sip.to });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/hangup') {
+    activeCaller?.hangup();
+    sendJson(res, { ok: true });
+    return;
+  }
+
+  res.writeHead(404).end('Not found');
+}
+
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((error) => sendError(res, error));
+});
+
+const mediaServer = new WebSocketServer({ noServer: true, maxPayload: MAX_JSON_BYTES });
+
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (config.callEngine !== 'direct' || url.pathname !== '/media') {
+    socket.destroy();
+    return;
+  }
+  mediaServer.handleUpgrade(req, socket, head, (client) => {
+    mediaServer.emit('connection', client, req);
+  });
+});
+
+mediaServer.on('connection', (client) => {
+  mediaClients.add(client);
+
+  client.on('message', (data, isBinary) => {
+    if (!isBinary || !activeCaller?.sendAudio) return;
+    const pcm = Buffer.from(data);
+    if (pcm.length < 2) return;
+    const completeSamples = pcm.subarray(0, pcm.length - (pcm.length % 2));
+    activeCaller.stopSilence?.();
+    activeCaller.sendAudio(encodePcmToUlaw(completeSamples));
+  });
+
+  const removeClient = () => mediaClients.delete(client);
+  client.on('close', removeClient);
+  client.on('error', removeClient);
+});
+
+server.listen(config.port, () => {
+  console.log('\n🚀 Zalo Cloud Connect UI');
+  console.log(`   http://localhost:${config.port}`);
+  console.log(`   SDP public IP: ${config.publicIp || '(chưa cấu hình ZALO_PUBLIC_IP)'}`);
+  console.log(`   RTP UDP: ${config.rtpMinPort}-${config.rtpMaxPort}\n`);
+  console.log(`   Call engine: ${config.callEngine}`);
+  if (config.callEngine === 'freeswitch') console.log(`   Softphone: http://localhost:${config.port}/softphone\n`);
+});
