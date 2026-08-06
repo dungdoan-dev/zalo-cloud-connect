@@ -10,6 +10,7 @@ const defaults = {
   accessToken: process.env.ZALO_OA_ACCESS_TOKEN || '',
   appId: process.env.ZALO_APP_ID || '',
   oaId: process.env.ZALO_OA_ID || '',
+  inboundId: process.env.ZCC_INBOUND_ID || process.env.ZALO_INBOUND_ID || '',
 };
 
 let saved = {};
@@ -23,14 +24,15 @@ export function getZaloConfig() {
   return { ...defaults, ...saved };
 }
 
-export function saveZaloConfig({ accessToken, appId, oaId }) {
+export function saveZaloConfig({ accessToken, appId, oaId, inboundId }) {
   const next = {
     accessToken: accessToken || getZaloConfig().accessToken,
     appId: String(appId || '').trim(),
     oaId: String(oaId || '').trim(),
+    inboundId: String(inboundId || '').trim(),
   };
-  if (!next.accessToken || !/^\d+$/.test(next.appId) || !/^\d+$/.test(next.oaId)) {
-    throw new Error('Access Token, App ID và OA ID không hợp lệ.');
+  if (!next.accessToken || !/^\d+$/.test(next.appId) || !/^\d+$/.test(next.oaId) || !/^\d+$/.test(next.inboundId)) {
+    throw new Error('Access Token, App ID, OA ID và inbound ID không hợp lệ.');
   }
   mkdirSync(dirname(CONFIG_FILE), { recursive: true });
   const temp = `${CONFIG_FILE}.tmp`;
@@ -45,10 +47,10 @@ function xml(value) {
   return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function writeFreeSwitchVars({ appId, oaId }) {
+function writeFreeSwitchVars({ appId, oaId, inboundId }) {
   const domain = `${appId}.zcc.openapi.zaloapp.com`;
   mkdirSync(dirname(FS_RUNTIME_FILE), { recursive: true });
-  const content = `<include>\n  <X-PRE-PROCESS cmd="set" data="zcc_domain=${xml(domain)}"/>\n  <X-PRE-PROCESS cmd="set" data="zcc_oa_id=${xml(oaId)}"/>\n</include>\n`;
+  const content = `<include>\n  <X-PRE-PROCESS cmd="set" data="zcc_domain=${xml(domain)}"/>\n  <X-PRE-PROCESS cmd="set" data="zcc_oa_id=${xml(oaId)}"/>\n  <X-PRE-PROCESS cmd="set" data="zcc_inbound_id=${xml(inboundId)}"/>\n</include>\n`;
   const temp = `${FS_RUNTIME_FILE}.tmp`;
   writeFileSync(temp, content, { mode: 0o600 });
   renameSync(temp, FS_RUNTIME_FILE);

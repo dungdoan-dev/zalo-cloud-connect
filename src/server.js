@@ -234,12 +234,12 @@ async function handleRequest(req, res) {
     }
     if (req.method === 'GET') {
       const zalo = getZaloConfig();
-      sendJson(res, { appId: zalo.appId, oaId: zalo.oaId, hasAccessToken: Boolean(zalo.accessToken) });
+      sendJson(res, { appId: zalo.appId, oaId: zalo.oaId, inboundId: zalo.inboundId, hasAccessToken: Boolean(zalo.accessToken) });
       return;
     }
     const body = await readJson(req);
-    const saved = saveZaloConfig({ accessToken: body.accessToken, appId: body.appId, oaId: body.oaId });
-    sendJson(res, { ok: true, appId: saved.appId, oaId: saved.oaId, hasAccessToken: true });
+    const saved = saveZaloConfig({ accessToken: body.accessToken, appId: body.appId, oaId: body.oaId, inboundId: body.inboundId });
+    sendJson(res, { ok: true, appId: saved.appId, oaId: saved.oaId, inboundId: saved.inboundId, hasAccessToken: true });
     return;
   }
 
