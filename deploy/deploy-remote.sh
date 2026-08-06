@@ -5,6 +5,8 @@ APP_DIR=/opt/simlydent
 FS_DIR=/usr/local/freeswitch
 FS_CONF="$FS_DIR/etc/freeswitch"
 
+cd "$APP_DIR"
+
 sudo install -d -o simlydent -g simlydent "$APP_DIR"
 sudo install -d -o freeswitch -g freeswitch "$FS_DIR/var/lib/freeswitch/recordings/zcc"
 
