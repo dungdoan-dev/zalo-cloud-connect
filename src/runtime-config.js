@@ -36,7 +36,7 @@ export function saveZaloConfig({ accessToken, appId, oaId, inboundId }) {
   }
   mkdirSync(dirname(CONFIG_FILE), { recursive: true });
   const temp = `${CONFIG_FILE}.tmp`;
-  writeFileSync(temp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+  writeFileSync(temp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o644  });
   renameSync(temp, CONFIG_FILE);
   writeFreeSwitchVars(next);
   saved = next;
