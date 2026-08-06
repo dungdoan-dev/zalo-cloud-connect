@@ -187,7 +187,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/webhooks/zalo') {
-    if (!webhookSecret || req.headers['x-webhook-secret'] !== webhookSecret) {
+    if (webhookSecret && req.headers['x-webhook-secret'] !== webhookSecret) {
       sendJson(res, { error: 'Webhook secret không hợp lệ.' }, 401);
       return;
     }
