@@ -33,4 +33,12 @@ ZALO_APP_ID=4598831758752463028
 ZALO_OA_ID=2565558072518292002
 ```
 
+FreeSWITCH vẫn dùng XML, nhưng OA ID/domain được trang settings sinh tự động tại
+`/opt/simlydent/data/zcc-runtime-vars.xml`. Thêm một lần dòng sau vào
+`/usr/local/freeswitch/etc/freeswitch/vars.xml`:
+
+```xml
+<X-PRE-PROCESS cmd="include" data="/opt/simlydent/data/zcc-runtime-vars.xml"/>
+```
+
 Sau khi push vào branch `main`, Actions sẽ chạy test, upload code, reload dialplan và restart FreeSWITCH/Node.
