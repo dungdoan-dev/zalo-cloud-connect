@@ -123,7 +123,7 @@ Cách dùng:
   node src/cli.js sip-target --callee 84773543888 [--app-id ID] [--oa-id ID]
   node src/cli.js call --callee 84773543888 [--app-id ID] [--oa-id ID]
                        [--ring-timeout 60000] [--call-duration 30000]
-                       [--local-ip 192.168.1.190] [--public-ip 171.236.49.4]
+                       [--local-ip 192.168.1.190] [--public-ip 16.176.236.109]
                        [--rtp-min-port 10000] [--rtp-max-port 10100]
 
 Biến môi trường:

@@ -8,7 +8,7 @@ Browser/SIP.js -- WSS + WebRTC --> FreeSWITCH -- SIP TCP + PCMU --> ZCC
 
 ## 1. Network
 
-- NAT public `171.236.49.4:5060/TCP` to FreeSWITCH port `5060/TCP`.
+- ZCC connects to the server Elastic IP `16.176.236.109:5060/TCP`.
 - NAT RTP UDP `10000-20000` without changing port numbers.
 - Publish `7443/TCP` for WSS.
 - Do not expose Event Socket `8021` to the Internet.
