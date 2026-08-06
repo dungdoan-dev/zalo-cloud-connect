@@ -17,6 +17,7 @@ sudo install -m 0644 deploy/systemd/simlydent.service /etc/systemd/system/simlyd
 sudo install -m 0644 deploy/systemd/freeswitch.service /etc/systemd/system/freeswitch.service
 
 sudo install -m 0644 deploy/freeswitch/conf/sip_profiles/zcc.xml "$FS_CONF/sip_profiles/zcc.xml"
+sudo install -m 0644 deploy/freeswitch/conf/dialplan/default/05_zcc_inbound.xml "$FS_CONF/dialplan/default/05_zcc_inbound.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/default/10_zcc_outbound.xml "$FS_CONF/dialplan/default/10_zcc_outbound.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/zcc.xml "$FS_CONF/dialplan/zcc.xml"
 
