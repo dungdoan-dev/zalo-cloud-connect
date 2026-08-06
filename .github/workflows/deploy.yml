@@ -38,7 +38,7 @@ jobs:
             --exclude '.git/' --exclude '.env' --exclude 'node_modules/' \
             --exclude 'deploy/key/' \
             -e "ssh -i $HOME/.ssh/ec2_key -o StrictHostKeyChecking=yes" \
-            ./ "$EC2_USER@$EC2_HOST:/opt/simlydent/"
+            ./ "$EC2_USER@$EC2_HOST:/tmp/simlydent-deploy/"
       - name: Install and restart services
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -46,4 +46,4 @@ jobs:
         run: |
           ssh -i "$HOME/.ssh/ec2_key" -o StrictHostKeyChecking=yes \
             "$EC2_USER@$EC2_HOST" \
-            'sudo bash /opt/simlydent/deploy/deploy-remote.sh'
+            'sudo rsync -az --delete --exclude .env /tmp/simlydent-deploy/ /opt/simlydent/ && sudo bash /opt/simlydent/deploy/deploy-remote.sh'
