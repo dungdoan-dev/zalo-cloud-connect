@@ -46,4 +46,4 @@ jobs:
         run: |
           ssh -i "$HOME/.ssh/ec2_key" -o StrictHostKeyChecking=yes \
             "$EC2_USER@$EC2_HOST" \
-            'sudo /opt/simlydent/deploy/deploy-remote.sh'
+            'sudo bash /opt/simlydent/deploy/deploy-remote.sh'
