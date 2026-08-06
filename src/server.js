@@ -8,6 +8,7 @@ import { encodePcmToUlaw } from './codec.js';
 import { SipCaller } from './sip-caller.js';
 import { buildSipTarget, ZccClient } from './zcc-client.js';
 import { getZaloConfig, saveZaloConfig } from './runtime-config.js';
+import { storeWebhook } from './webhook-store.js';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const INDEX_PATH = join(ROOT_DIR, '../public/index.html');
@@ -28,6 +29,7 @@ const config = Object.freeze({
   pbxSipDomain: process.env.PBX_SIP_DOMAIN || '',
 });
 const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
+const webhookSecret = process.env.WEBHOOK_SECRET || '';
 
 const sseClients = new Set();
 const mediaClients = new Set();
@@ -176,6 +178,26 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/settings') {
     sendFile(res, SETTINGS_PATH);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/webhooks/zalo') {
+    sendJson(res, { ok: true, endpoint: 'zalo-webhook' });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/webhooks/zalo') {
+    if (!webhookSecret || req.headers['x-webhook-secret'] !== webhookSecret) {
+      sendJson(res, { error: 'Webhook secret không hợp lệ.' }, 401);
+      return;
+    }
+    const payload = await readJson(req);
+    storeWebhook(payload, {
+      eventId: req.headers['x-event-id'] || null,
+      userAgent: req.headers['user-agent'] || null,
+      contentType: req.headers['content-type'] || null,
+    });
+    sendJson(res, { ok: true });
     return;
   }
 
