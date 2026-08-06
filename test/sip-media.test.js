@@ -5,7 +5,7 @@ import { encodePcmToUlaw, ulawToPcm16 } from '../src/codec.js';
 
 test('SDP quảng bá public IP, cổng cố định và chỉ offer PCMU', () => {
   const sdp = buildSdp('16.176.236.109', 10000);
-  assert.match(sdp, /^c=IN IP4 171\.236\.49\.4$/m);
+  assert.match(sdp, /^c=IN IP4 16\.176\.236\.109$/m);
   assert.match(sdp, /^m=audio 10000 RTP\/AVP 0 101$/m);
   assert.match(sdp, /^a=rtpmap:0 PCMU\/8000$/m);
   assert.doesNotMatch(sdp, /PCMA/);
