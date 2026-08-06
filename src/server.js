@@ -3,22 +3,22 @@ import { readFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { timingSafeEqual } from 'node:crypto';
 import { encodePcmToUlaw } from './codec.js';
 import { SipCaller } from './sip-caller.js';
 import { buildSipTarget, ZccClient } from './zcc-client.js';
+import { getZaloConfig, saveZaloConfig } from './runtime-config.js';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const INDEX_PATH = join(ROOT_DIR, '../public/index.html');
 const SOFTPHONE_PATH = join(ROOT_DIR, '../public/softphone.html');
+const SETTINGS_PATH = join(ROOT_DIR, '../public/settings.html');
 const PUBLIC_DIR = resolve(ROOT_DIR, '../public');
 const SIP_JS_DIR = resolve(ROOT_DIR, '../node_modules/sip.js/lib');
 const MAX_JSON_BYTES = 64 * 1024;
 
 const config = Object.freeze({
   port: readIntegerEnv('PORT', 3000),
-  accessToken: process.env.ZALO_OA_ACCESS_TOKEN,
-  appId: process.env.ZALO_APP_ID,
-  oaId: process.env.ZALO_OA_ID,
   publicIp: process.env.ZALO_PUBLIC_IP,
   localIp: process.env.ZALO_LOCAL_IP,
   rtpMinPort: readIntegerEnv('ZALO_RTP_MIN_PORT', 10000),
@@ -27,6 +27,7 @@ const config = Object.freeze({
   pbxWssUrl: process.env.PBX_WSS_URL || '',
   pbxSipDomain: process.env.PBX_SIP_DOMAIN || '',
 });
+const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
 
 const sseClients = new Set();
 const mediaClients = new Set();
@@ -73,6 +74,14 @@ function sendFile(res, path) {
   res.end(readFileSync(path));
 }
 
+function isAdmin(req) {
+  const supplied = req.headers['x-config-password'] || '';
+  if (!configAdminPassword || !supplied) return false;
+  const a = Buffer.from(String(supplied));
+  const b = Buffer.from(configAdminPassword);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function safeStaticPath(root, requestPath) {
   const path = resolve(root, requestPath.replace(/^\/+/, ''));
   const child = relative(root, path);
@@ -115,7 +124,8 @@ function releaseCaller(caller) {
 }
 
 function createCaller(callee) {
-  const sip = buildSipTarget({ appId: config.appId, oaId: config.oaId, callee });
+  const zalo = getZaloConfig();
+  const sip = buildSipTarget({ appId: zalo.appId, oaId: zalo.oaId, callee });
   const caller = new SipCaller({
     fromUri: sip.from,
     domain: sip.domain,
@@ -164,6 +174,11 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/settings') {
+    sendFile(res, SETTINGS_PATH);
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/softphone.js') {
     sendFile(res, join(PUBLIC_DIR, 'softphone.js'));
     return;
@@ -180,16 +195,34 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/config') {
+    const zalo = getZaloConfig();
     sendJson(res, {
       callEngine: config.callEngine,
-      appId: config.appId,
-      oaId: config.oaId,
+      appId: zalo.appId,
+      oaId: zalo.oaId,
       pbx: { wssUrl: config.pbxWssUrl, sipDomain: config.pbxSipDomain },
     });
     return;
   }
 
+  if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === '/api/settings') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoặc thiếu mật khẩu quản trị.' }, 401);
+      return;
+    }
+    if (req.method === 'GET') {
+      const zalo = getZaloConfig();
+      sendJson(res, { appId: zalo.appId, oaId: zalo.oaId, hasAccessToken: Boolean(zalo.accessToken) });
+      return;
+    }
+    const body = await readJson(req);
+    const saved = saveZaloConfig({ accessToken: body.accessToken, appId: body.appId, oaId: body.oaId });
+    sendJson(res, { ok: true, appId: saved.appId, oaId: saved.oaId, hasAccessToken: true });
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/events') {
+    const zalo = getZaloConfig();
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -197,9 +230,9 @@ async function handleRequest(req, res) {
     });
     res.write(`event: status\ndata: ${JSON.stringify({
       hasCall: Boolean(activeCaller),
-      appId: config.appId,
+      appId: zalo.appId,
       callEngine: config.callEngine,
-      oaId: config.oaId ? `${config.oaId.slice(0, 6)}…` : undefined,
+      oaId: zalo.oaId ? `${zalo.oaId.slice(0, 6)}…` : undefined,
     })}\n\n`);
     sseClients.add(res);
     req.on('close', () => sseClients.delete(res));
@@ -207,8 +240,9 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/request-consent') {
+    const zalo = getZaloConfig();
     const body = await readJson(req);
-    const client = new ZccClient({ accessToken: config.accessToken });
+    const client = new ZccClient({ accessToken: zalo.accessToken });
     const result = await client.requestConsent({
       phone: body.phone,
       callType: body.callType || 'audio',
@@ -219,8 +253,9 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/check-consent') {
+    const zalo = getZaloConfig();
     const body = await readJson(req);
-    const client = new ZccClient({ accessToken: config.accessToken });
+    const client = new ZccClient({ accessToken: zalo.accessToken });
     sendJson(res, await client.checkConsent({ phone: body.phone }));
     return;
   }

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZCC Settings</title>
+<style>body{font-family:system-ui;background:#081421;color:#fff;max-width:620px;margin:40px auto;padding:20px}main{background:#101d2d;padding:24px;border-radius:14px}label{display:block;margin:16px 0 6px;color:#b7c8dc}input,button{width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #38506b;background:#07111f;color:#fff;font:inherit}button{background:#1769e0;border:0;font-weight:700;margin-top:20px;cursor:pointer}#status{margin-top:16px;padding:10px;border-radius:8px;background:#17283a}small{color:#9fb1c7}</style></head>
+<body><main><h1>Cấu hình Zalo Cloud Connect</h1><small>Token không được hiển thị lại. Dùng HTTPS khi triển khai thật.</small>
+<label>Mật khẩu quản trị</label><input id="admin" type="password" autocomplete="current-password">
+<label>ZALO_OA_ACCESS_TOKEN</label><input id="token" type="password" placeholder="Để trống nếu giữ token hiện tại">
+<label>ZALO_APP_ID</label><input id="appId" inputmode="numeric">
+<label>ZALO_OA_ID</label><input id="oaId" inputmode="numeric">
+<button id="save">Lưu cấu hình</button><div id="status">Chưa tải cấu hình.</div></main>
+<script>
+const $=id=>document.getElementById(id), status=(s,ok=false)=>{ $('status').textContent=s; $('status').style.background=ok?'#103c31':'#17283a'; };
+async function load(){const r=await fetch('/api/settings',{headers:{'x-config-password':$('admin').value}});const d=await r.json();if(!r.ok)throw Error(d.error||'Không thể tải cấu hình');$('appId').value=d.appId||'';$('oaId').value=d.oaId||'';$('token').placeholder=d.hasAccessToken?'Đã có token — để trống để giữ nguyên':'Nhập token';status('Đã tải cấu hình.');}
+$('admin').addEventListener('change',()=>load().catch(e=>status(e.message)));$('save').onclick=async()=>{try{const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json','x-config-password':$('admin').value},body:JSON.stringify({accessToken:$('token').value,appId:$('appId').value,oaId:$('oaId').value})});const d=await r.json();if(!r.ok)throw Error(d.error||'Lưu thất bại');$('token').value='';$('token').placeholder='Đã lưu token — để trống để giữ nguyên';status('Đã lưu cấu hình.',true);}catch(e){status(e.message);}};
+</script></body></html>

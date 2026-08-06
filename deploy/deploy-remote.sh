@@ -8,6 +8,7 @@ FS_CONF="$FS_DIR/etc/freeswitch"
 cd "$APP_DIR"
 
 sudo install -d -o simlydent -g simlydent "$APP_DIR"
+sudo install -d -o simlydent -g simlydent "$APP_DIR/data"
 sudo install -d -o freeswitch -g freeswitch "$FS_DIR/var/lib/freeswitch/recordings/zcc"
 
 if ! command -v node >/dev/null 2>&1; then

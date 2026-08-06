@@ -36,6 +36,7 @@ jobs:
         run: |
           rsync -az --delete \
             --exclude '.git/' --exclude '.env' --exclude 'node_modules/' \
+            --exclude 'data/' \
             --exclude 'deploy/key/' \
             -e "ssh -i $HOME/.ssh/ec2_key -o StrictHostKeyChecking=yes" \
             ./ "$EC2_USER@$EC2_HOST:/tmp/simlydent-deploy/"
@@ -46,4 +47,4 @@ jobs:
         run: |
           ssh -i "$HOME/.ssh/ec2_key" -o StrictHostKeyChecking=yes \
             "$EC2_USER@$EC2_HOST" \
-            'sudo rsync -az --delete --exclude .env /tmp/simlydent-deploy/ /opt/simlydent/ && sudo bash /opt/simlydent/deploy/deploy-remote.sh'
+            'sudo rsync -az --delete --exclude .env --exclude data/ /tmp/simlydent-deploy/ /opt/simlydent/ && sudo bash /opt/simlydent/deploy/deploy-remote.sh'
