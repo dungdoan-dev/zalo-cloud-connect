@@ -30,8 +30,18 @@ sudo -u simlydent npm ci --omit=dev
 sudo systemctl daemon-reload
 sudo systemctl enable freeswitch.service simlydent.service
 sudo systemctl restart freeswitch.service
-sleep 2
-sudo /usr/local/freeswitch/bin/fs_cli -x reloadxml
-sudo /usr/local/freeswitch/bin/fs_cli -x 'sofia profile zcc restart' || true
+for attempt in $(seq 1 30); do
+  if sudo /usr/local/freeswitch/bin/fs_cli -x status >/dev/null 2>&1; then
+    sudo /usr/local/freeswitch/bin/fs_cli -x reloadxml
+    sudo /usr/local/freeswitch/bin/fs_cli -x 'sofia profile zcc restart' || true
+    break
+  fi
+  if [ "$attempt" -eq 30 ]; then
+    echo "FreeSWITCH Event Socket chưa sẵn sàng sau 60 giây." >&2
+    sudo systemctl --no-pager --full status freeswitch.service || true
+    exit 1
+  fi
+  sleep 2
+done
 sudo systemctl restart simlydent.service
 sudo systemctl --no-pager --full status freeswitch.service simlydent.service
