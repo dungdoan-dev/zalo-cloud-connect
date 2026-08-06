@@ -7,7 +7,8 @@
   <settings>
     <param name="debug" value="0"/>
     <param name="sip-trace" value="no"/>
-    <param name="context" value="zcc"/>
+    <!-- Use the loaded vanilla default context so inbound ZCC routes are active. -->
+    <param name="context" value="default"/>
     <param name="dialplan" value="XML"/>
     <param name="sip-ip" value="$${local_ip_v4}"/>
     <param name="rtp-ip" value="$${local_ip_v4}"/>

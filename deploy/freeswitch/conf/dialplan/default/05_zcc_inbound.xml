@@ -1,0 +1,10 @@
+<include>
+  <!-- ZCC inbound route/DID -> registered browser extension. -->
+  <extension name="zcc-inbound-route-101">
+    <condition field="destination_number" expression="^2565558072518292002101$">
+      <action application="set" data="absolute_codec_string=PCMU"/>
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="bridge" data="user/1001"/>
+    </condition>
+  </extension>
+</include>
