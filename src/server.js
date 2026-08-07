@@ -32,6 +32,11 @@ const config = Object.freeze({
 const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
 const webhookSecret = process.env.WEBHOOK_SECRET || '';
 
+function rewriteSipTransport(data, from, to) {
+  if (Buffer.isBuffer(data)) return data;
+  return String(data).replaceAll(`SIP/2.0/${from}`, `SIP/2.0/${to}`);
+}
+
 const sseClients = new Set();
 const mediaClients = new Set();
 let activeCaller = null;
@@ -358,14 +363,16 @@ server.on('upgrade', (req, socket, head) => {
             // SIP messages must remain text frames. ws exposes text frames as
             // Buffers on the server side, which can otherwise be re-sent as
             // binary and ignored by FreeSWITCH/SIP.js.
-            const payload = isBinary ? data : data.toString();
+            // TLS is terminated by ngrok. FreeSWITCH receives plain WS, so
+            // its Sofia parser must see Via: SIP/2.0/WS rather than WSS.
+            const payload = isBinary ? data : rewriteSipTransport(data.toString(), 'WSS', 'WS');
             console.log(`[sip-proxy] browser -> freeswitch: ${isBinary ? 'binary' : String(payload).split(/\r?\n/, 1)[0]}`);
             upstream.send(payload);
           }
         });
         upstream.on('message', (data, isBinary) => {
           if (client.readyState === WebSocket.OPEN) {
-            const payload = isBinary ? data : data.toString();
+            const payload = isBinary ? data : rewriteSipTransport(data.toString(), 'WS', 'WSS');
             console.log(`[sip-proxy] freeswitch -> browser: ${isBinary ? 'binary' : String(payload).split(/\r?\n/, 1)[0]}`);
             client.send(payload);
           }
