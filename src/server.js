@@ -57,6 +57,8 @@ function rewriteSdpForBrowser(data) {
   const rewrittenBody = body.replaceAll(config.localIp, config.publicIp);
   if (rewrittenBody === body) return message;
 
+  console.log(`[sip-proxy] SDP ICE rewrite ${config.localIp} -> ${config.publicIp}`);
+
   const rewrittenHeaders = headers.replace(
     /content-length\s*:\s*\d+/i,
     `Content-Length: ${Buffer.byteLength(rewrittenBody)}`,
