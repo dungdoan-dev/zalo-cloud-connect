@@ -26,6 +26,8 @@ Tạo `/etc/simlydent.env` trên server và đặt các biến runtime, không �
 CALL_ENGINE=freeswitch
 PBX_WSS_URL=ws://16.176.236.109:5066
 PBX_SIP_DOMAIN=16.176.236.109
+# WebSocket nội bộ để proxy /sip khi giao diện chạy HTTPS/ngrok.
+PBX_WS_UPSTREAM=ws://172.31.13.211:5066
 CONFIG_ADMIN_PASSWORD=MAT_KHAU_QUAN_TRI_MOI
 # Chỉ đặt WEBHOOK_SECRET nếu bên gửi webhook hỗ trợ gửi X-Webhook-Secret.
 ZALO_OA_ACCESS_TOKEN=...

@@ -20,6 +20,21 @@ function setCallState(active) {
   callActive = active; ui.call.textContent = active ? 'Kết thúc' : 'Gọi';
   ui.mute.disabled = !active; ui.hold.disabled = !active;
 }
+async function attachRemoteAudio() {
+  if (!phone || !ui.remoteAudio) return;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const stream = phone.remoteMediaStream;
+    if (stream) {
+      if (ui.remoteAudio.srcObject !== stream) ui.remoteAudio.srcObject = stream;
+      ui.remoteAudio.autoplay = true;
+      ui.remoteAudio.playsInline = true;
+      try { await ui.remoteAudio.play(); } catch (error) { writeLog(`Không phát được âm thanh: ${error.message}`); }
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  writeLog('Không nhận được remote audio stream từ WebRTC.');
+}
 function sipResponse(response) {
   const message = response?.message;
   const code = message?.statusCode || 0;
@@ -60,11 +75,16 @@ function buildPhone() {
   const server = ui.wss.value.trim();
   const extension = ui.extension.value.trim();
   if (!server || !ui.domain.value.trim() || !extension || !ui.password.value) throw new Error('Cần nhập đủ WSS, SIP domain, extension và mật khẩu.');
+  if (window.isSecureContext === false && !server.startsWith('ws://')) throw new Error('Trang HTTPS phải dùng WSS.');
   return new SimpleUser(server, {
     aor: sipUri(extension),
-    media: { constraints: { audio: true, video: false }, remote: { audio: ui.remoteAudio } },
+    media: { constraints: { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }, remote: { audio: ui.remoteAudio } },
     reconnectionAttempts: 5, reconnectionDelay: 4, sendDTMFUsingSessionDescriptionHandler: true,
     userAgentOptions: {
+      sessionDescriptionHandlerFactoryOptions: {
+        iceGatheringTimeout: 10000,
+        peerConnectionConfiguration: { bundlePolicy: 'max-bundle', rtcpMuxPolicy: 'require', iceTransportPolicy: 'all', iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
+      },
       authorizationUsername: extension,
       authorizationPassword: ui.password.value,
       displayName: extension,
@@ -78,7 +98,7 @@ function buildPhone() {
       onUnregistered: () => { setStatus('Chưa đăng ký'); writeLog('Đã hủy REGISTER.'); },
       onCallCreated: () => { lastCallFailure = ''; setCallState(true); setStatus('Đang thiết lập cuộc gọi'); writeLog('SIP session đã được tạo.'); },
       onCallReceived: () => { setCallState(true); ui.answer.hidden = false; ui.decline.hidden = false; setStatus('Có cuộc gọi đến', 'ringing'); writeLog('Nhận INVITE từ FreeSWITCH.'); },
-      onCallAnswered: () => { ui.answer.hidden = true; ui.decline.hidden = true; setStatus('Đang đàm thoại', 'ok'); void ui.remoteAudio.play().catch(() => {}); writeLog('Cuộc gọi đã kết nối.'); },
+      onCallAnswered: () => { ui.answer.hidden = true; ui.decline.hidden = true; setStatus('Đang đàm thoại', 'ok'); void attachRemoteAudio(); writeLog('Cuộc gọi đã kết nối, đang gắn remote audio.'); },
       onCallHangup: () => {
         setCallState(false); ui.answer.hidden = true; ui.decline.hidden = true;
         setStatus(lastCallFailure || 'Cuộc gọi kết thúc', lastCallFailure ? 'error' : '');
@@ -132,5 +152,9 @@ document.querySelectorAll('[data-dtmf]').forEach((button) => button.addEventList
 
 const saved = JSON.parse(localStorage.getItem('zcc-softphone') || '{}');
 const config = await fetch('/api/config').then((response) => response.json());
-ui.wss.value = saved.wss || config.pbx?.wssUrl || ''; ui.domain.value = saved.domain || config.pbx?.sipDomain || ''; ui.extension.value = saved.extension || '';
+const configuredWss = config.pbx?.wssUrl || '';
+// Do not let an old ws:// value in localStorage override the HTTPS proxy URL.
+const useConfiguredWss = window.isSecureContext && configuredWss.startsWith('wss://');
+ui.wss.value = useConfiguredWss ? configuredWss : (saved.wss || configuredWss);
+ui.domain.value = saved.domain || config.pbx?.sipDomain || ''; ui.extension.value = saved.extension || '';
 setStatus(config.callEngine === 'freeswitch' ? 'Sẵn sàng đăng ký' : 'Server đang ở chế độ POC');

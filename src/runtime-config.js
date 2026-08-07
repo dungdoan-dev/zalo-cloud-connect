@@ -52,7 +52,10 @@ function writeFreeSwitchVars({ appId, oaId, inboundId }) {
   mkdirSync(dirname(FS_RUNTIME_FILE), { recursive: true });
   const content = `<include>\n  <X-PRE-PROCESS cmd="set" data="zcc_domain=${xml(domain)}"/>\n  <X-PRE-PROCESS cmd="set" data="zcc_oa_id=${xml(oaId)}"/>\n  <X-PRE-PROCESS cmd="set" data="zcc_inbound_id=${xml(inboundId)}"/>\n</include>\n`;
   const temp = `${FS_RUNTIME_FILE}.tmp`;
-  writeFileSync(temp, content, { mode: 0o600 });
+  // FreeSWITCH runs as its own user and must be able to read this generated
+  // include. It contains identifiers only; the OA access token is never
+  // written to this file.
+  writeFileSync(temp, content, { mode: 0o644 });
   renameSync(temp, FS_RUNTIME_FILE);
 
   const fsCli = '/usr/local/freeswitch/bin/fs_cli';

@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { WebSocketServer } from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { timingSafeEqual } from 'node:crypto';
 import { encodePcmToUlaw } from './codec.js';
 import { SipCaller } from './sip-caller.js';
@@ -27,6 +27,7 @@ const config = Object.freeze({
   callEngine: process.env.CALL_ENGINE === 'freeswitch' ? 'freeswitch' : 'direct',
   pbxWssUrl: process.env.PBX_WSS_URL || '',
   pbxSipDomain: process.env.PBX_SIP_DOMAIN || '',
+  pbxWsUpstream: process.env.PBX_WS_UPSTREAM || `ws://${process.env.ZALO_LOCAL_IP || '127.0.0.1'}:5066`,
 });
 const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
 const webhookSecret = process.env.WEBHOOK_SECRET || '';
@@ -218,11 +219,17 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/config') {
     const zalo = getZaloConfig();
+    const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host;
+    const browserIsHttps = forwardedProto === 'https' || (forwardedProto === '' && req.socket.encrypted);
+    const browserWssUrl = browserIsHttps && forwardedHost
+      ? `wss://${forwardedHost}/sip`
+      : config.pbxWssUrl;
     sendJson(res, {
       callEngine: config.callEngine,
       appId: zalo.appId,
       oaId: zalo.oaId,
-      pbx: { wssUrl: config.pbxWssUrl, sipDomain: config.pbxSipDomain },
+      pbx: { wssUrl: browserWssUrl, sipDomain: config.pbxSipDomain },
     });
     return;
   }
@@ -320,10 +327,44 @@ const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((error) => sendError(res, error));
 });
 
-const mediaServer = new WebSocketServer({ noServer: true, maxPayload: MAX_JSON_BYTES });
+const mediaServer = new WebSocketServer({
+  noServer: true,
+  maxPayload: MAX_JSON_BYTES,
+  handleProtocols: (protocols) => protocols.has('sip') ? 'sip' : protocols.values().next().value,
+});
 
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (config.callEngine === 'freeswitch' && url.pathname === '/sip') {
+    const protocols = req.headers['sec-websocket-protocol']
+      ? String(req.headers['sec-websocket-protocol']).split(',').map((value) => value.trim()).filter(Boolean)
+      : [];
+    const upstream = new WebSocket(config.pbxWsUpstream, protocols.length ? protocols : undefined);
+    const reject = () => { try { socket.destroy(); } catch {} };
+    upstream.once('error', reject);
+    upstream.once('open', () => {
+      upstream.removeListener('error', reject);
+      mediaServer.handleUpgrade(req, socket, head, (client) => {
+        const closeBoth = () => {
+          if (client.readyState === WebSocket.OPEN) client.close();
+          if (upstream.readyState === WebSocket.OPEN) upstream.close();
+        };
+        upstream.on('error', (error) => {
+          console.error(`[sip-proxy] ${error.message}`);
+          closeBoth();
+        });
+        client.on('message', (data, isBinary) => {
+          if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+        });
+        upstream.on('message', (data, isBinary) => {
+          if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
+        });
+        client.on('close', closeBoth);
+        upstream.on('close', closeBoth);
+      });
+    });
+    return;
+  }
   if (config.callEngine !== 'direct' || url.pathname !== '/media') {
     socket.destroy();
     return;
