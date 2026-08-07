@@ -10,6 +10,7 @@ const ui = {
 let phone;
 let callActive = false;
 let lastCallFailure = '';
+let runtimeConfig = {};
 
 function writeLog(message) {
   const time = new Date().toLocaleTimeString('vi-VN');
@@ -76,6 +77,8 @@ function buildPhone() {
   const extension = ui.extension.value.trim();
   if (!server || !ui.domain.value.trim() || !extension || !ui.password.value) throw new Error('Cần nhập đủ WSS, SIP domain, extension và mật khẩu.');
   if (window.isSecureContext === false && !server.startsWith('ws://')) throw new Error('Trang HTTPS phải dùng WSS.');
+  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  if (runtimeConfig.webrtc?.turn?.urls) iceServers.push(runtimeConfig.webrtc.turn);
   return new SimpleUser(server, {
     aor: sipUri(extension),
     media: { constraints: { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }, remote: { audio: ui.remoteAudio } },
@@ -83,7 +86,10 @@ function buildPhone() {
     userAgentOptions: {
       sessionDescriptionHandlerFactoryOptions: {
         iceGatheringTimeout: 10000,
-        peerConnectionConfiguration: { bundlePolicy: 'max-bundle', rtcpMuxPolicy: 'require', iceTransportPolicy: 'all', iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
+        // FreeSWITCH's SIP SDP may omit a=group:BUNDLE (especially on the
+        // inbound leg). `max-bundle` makes Chrome reject that offer before
+        // ICE/DTLS can start; balanced accepts both bundled and unbundled SDP.
+        peerConnectionConfiguration: { bundlePolicy: 'balanced', rtcpMuxPolicy: 'require', iceTransportPolicy: 'all', iceServers },
       },
       authorizationUsername: extension,
       authorizationPassword: ui.password.value,
@@ -152,6 +158,7 @@ document.querySelectorAll('[data-dtmf]').forEach((button) => button.addEventList
 
 const saved = JSON.parse(localStorage.getItem('zcc-softphone') || '{}');
 const config = await fetch('/api/config').then((response) => response.json());
+runtimeConfig = config;
 const configuredWss = config.pbx?.wssUrl || '';
 // Do not let an old ws:// value in localStorage override the HTTPS proxy URL.
 const useConfiguredWss = window.isSecureContext && configuredWss.startsWith('wss://');
