@@ -354,10 +354,15 @@ server.on('upgrade', (req, socket, head) => {
           closeBoth();
         });
         client.on('message', (data, isBinary) => {
-          if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+          if (upstream.readyState === WebSocket.OPEN) {
+            // SIP messages must remain text frames. ws exposes text frames as
+            // Buffers on the server side, which can otherwise be re-sent as
+            // binary and ignored by FreeSWITCH/SIP.js.
+            upstream.send(isBinary ? data : data.toString());
+          }
         });
         upstream.on('message', (data, isBinary) => {
-          if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
+          if (client.readyState === WebSocket.OPEN) client.send(isBinary ? data : data.toString());
         });
         client.on('close', closeBoth);
         upstream.on('close', closeBoth);
