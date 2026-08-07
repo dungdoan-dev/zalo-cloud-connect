@@ -3,29 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SimlyDent ZCC Softphone</title>
+  <title>Thiết lập SimlyDent Call</title>
   <style>
-    :root { color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#07111f;color:#e8f0fa }
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}main{width:min(920px,100%);display:grid;grid-template-columns:1.1fr .9fr;gap:18px}section{background:#101d2d;border:1px solid #24364c;border-radius:18px;padding:22px;box-shadow:0 20px 70px #0005}h1{margin:0 0 4px;font-size:24px}p{margin:0 0 20px;color:#9fb1c7}label{display:block;color:#aebdd0;font-size:13px;margin:13px 0 6px}input,select,button{width:100%;border-radius:10px;border:1px solid #334a64;padding:12px;font:inherit}input,select{color:#fff;background:#081421}button{color:#fff;background:#1769e0;cursor:pointer;font-weight:700}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#24364c}.danger{background:#c23d4b}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}#status{margin:18px 0;padding:12px;text-align:center;border-radius:10px;background:#17283a}#status[data-tone=ok]{background:#103c31;color:#7ef0bd}#status[data-tone=error]{background:#49242c;color:#ffabb4}#status[data-tone=ringing]{background:#453714;color:#ffe082}.dial{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.dial button{background:#17283a}pre{height:290px;overflow:auto;white-space:pre-wrap;background:#07111f;border-radius:10px;padding:12px;color:#9eb6ce;font-size:12px}a{color:#74adff}audio{width:100%;margin-top:16px}@media(max-width:720px){main{grid-template-columns:1fr}}
+    :root{font-family:Inter,system-ui,sans-serif;color:#ebf4ff;background:#07111f}*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:48px 20px;background:radial-gradient(circle at top,#13355c,#07111f 52%)}main{width:min(680px,100%);margin:auto;padding:30px;border:1px solid #29415f;border-radius:20px;background:#0d1b2d;box-shadow:0 24px 80px #0008}h1{margin:0 0 8px;font-size:26px}p{margin:0;color:#9db3cc;line-height:1.55}label{display:block;margin:19px 0 7px;color:#b8cbe0;font-size:13px}input{width:100%;padding:12px;border:1px solid #385471;border-radius:10px;background:#071321;color:#fff;font:inherit}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.check{display:flex;gap:9px;align-items:center;margin-top:16px;color:#b8cbe0;font-size:13px}.check input{width:auto}button{width:100%;margin-top:20px;padding:13px;border:0;border-radius:10px;background:#1472ed;color:#fff;font:700 15px inherit;cursor:pointer}button.alt{background:#263b58;margin-top:10px}#message{min-height:22px;margin-top:15px;color:#9db3cc;font-size:13px}.warning{margin-top:20px;padding:12px;border-radius:10px;background:#33280e;color:#f7d878;font-size:13px}@media(max-width:560px){.row{grid-template-columns:1fr}main{padding:22px}}
   </style>
 </head>
 <body>
-<main>
-  <section>
-    <h1>SimlyDent ZCC Softphone</h1><p>SIP.js → WebRTC/WSS → FreeSWITCH → Zalo Cloud Connect · <a href="/settings">Cấu hình ZCC</a></p>
-    <label for="wss">FreeSWITCH WSS</label><input id="wss" placeholder="wss://pbx.simlydent.vn:7443">
-    <label for="domain">SIP domain</label><input id="domain" placeholder="pbx.simlydent.vn">
-    <div class="row"><div><label for="extension">Extension</label><input id="extension" autocomplete="username" placeholder="1001"></div><div><label for="password">Mật khẩu</label><input id="password" type="password" autocomplete="current-password"></div></div>
-    <button id="register" style="margin-top:14px">Kết nối và REGISTER</button><div id="status">Đang tải cấu hình…</div>
-    <label for="target-type">Loại đích gọi</label><select id="target-type"><option value="phone">Số điện thoại (kiểm tra consent)</option><option value="user_id">Zalo User ID</option></select>
-    <label for="callee">Số điện thoại hoặc Zalo User ID</label><input id="callee" inputmode="numeric" placeholder="84372626121">
-    <div class="row"><button id="call">Gọi</button><button id="answer" hidden>Trả lời</button><button id="decline" class="danger" hidden>Từ chối</button></div>
-    <div class="row"><button id="mute" class="secondary" disabled>Tắt mic</button><button id="hold" class="secondary" disabled>Giữ máy</button></div>
-    <div class="dial"><button data-dtmf="1">1</button><button data-dtmf="2">2</button><button data-dtmf="3">3</button><button data-dtmf="4">4</button><button data-dtmf="5">5</button><button data-dtmf="6">6</button><button data-dtmf="7">7</button><button data-dtmf="8">8</button><button data-dtmf="9">9</button><button data-dtmf="*">*</button><button data-dtmf="0">0</button><button data-dtmf="#">#</button></div>
-    <audio id="remote-audio" autoplay playsinline></audio>
-  </section>
-  <section><h1>Nhật ký SIP</h1><p>Mật khẩu không được lưu vào trình duyệt.</p><pre id="log">Chưa có sự kiện.</pre><a href="/">Mở giao diện POC cũ</a></section>
-</main>
-<script type="module" src="/softphone.js"></script>
+  <main>
+    <h1>Thiết lập SimlyDent Call</h1>
+    <p>Chỉ cần cấu hình một lần trên thiết bị này. Floating Call sẽ tự đăng ký lại mỗi khi mở hệ thống.</p>
+    <form id="sip-settings">
+      <div class="row">
+        <div><label for="extension">Extension</label><input id="extension" autocomplete="username" placeholder="1001" required></div>
+        <div><label for="password">Mật khẩu extension</label><input id="password" type="password" autocomplete="current-password" required></div>
+      </div>
+      <label class="check"><input id="remember-password" type="checkbox" checked> Ghi nhớ mật khẩu trên thiết bị này để tự kết nối</label>
+      <button type="submit">Lưu và kết nối</button>
+      <button class="alt" id="clear-settings" type="button">Xóa cấu hình trên thiết bị</button>
+      <p id="message"></p>
+    </form>
+    <p class="warning">Mật khẩu chỉ lưu trong trình duyệt của thiết bị này. Không bật lựa chọn ghi nhớ trên máy dùng chung.</p>
+    <p style="margin-top:20px"><a href="/" style="color:#83b7ff">← Về Call Center</a></p>
+  </main>
+  <script type="module" src="/softphone-settings.js"></script>
+  <script type="module" src="/floating-softphone.js"></script>
 </body>
 </html>

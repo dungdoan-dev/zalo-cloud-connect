@@ -28,6 +28,9 @@ const config = Object.freeze({
   pbxWssUrl: process.env.PBX_WSS_URL || '',
   pbxSipDomain: process.env.PBX_SIP_DOMAIN || '',
   pbxWsUpstream: process.env.PBX_WS_UPSTREAM || `ws://${process.env.ZALO_LOCAL_IP || '127.0.0.1'}:5066`,
+  turnUrl: process.env.WEBRTC_TURN_URL || '',
+  turnUsername: process.env.WEBRTC_TURN_USERNAME || '',
+  turnPassword: process.env.WEBRTC_TURN_PASSWORD || '',
 });
 const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
 const webhookSecret = process.env.WEBHOOK_SECRET || '';
@@ -241,6 +244,11 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === 'GET' && (url.pathname === '/floating-softphone.js' || url.pathname === '/softphone-settings.js')) {
+    sendFile(res, join(PUBLIC_DIR, url.pathname.slice(1)));
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname.startsWith('/vendor/sip.js/')) {
     const path = safeStaticPath(SIP_JS_DIR, url.pathname.slice('/vendor/sip.js/'.length));
     if (!path) {
@@ -264,6 +272,9 @@ async function handleRequest(req, res) {
       appId: zalo.appId,
       oaId: zalo.oaId,
       pbx: { wssUrl: browserWssUrl, sipDomain: config.pbxSipDomain },
+      webrtc: config.turnUrl && config.turnUsername
+        ? { turn: { urls: config.turnUrl, username: config.turnUsername, credential: config.turnPassword } }
+        : { turn: null },
     });
     return;
   }
