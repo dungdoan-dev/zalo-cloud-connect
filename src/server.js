@@ -37,6 +37,33 @@ function rewriteSipTransport(data, from, to) {
   return String(data).replaceAll(`SIP/2.0/${from}`, `SIP/2.0/${to}`);
 }
 
+/**
+ * FreeSWITCH is behind the Node WebSocket proxy, so Sofia sees the proxy's
+ * private VPC address as its local interface and may put that address in the
+ * ICE candidate lines.  That address is not routable from the browser.  Keep
+ * the media ports/ICE credentials unchanged, but advertise the EC2 Elastic IP
+ * in SDP sent back to the browser.
+ */
+function rewriteSdpForBrowser(data) {
+  if (Buffer.isBuffer(data) || !config.localIp || !config.publicIp) return data;
+  const message = String(data);
+  const separator = message.indexOf('\r\n\r\n');
+  if (separator < 0 || !/content-type\s*:\s*application\/sdp/i.test(message.slice(0, separator))) {
+    return message;
+  }
+
+  const headers = message.slice(0, separator);
+  const body = message.slice(separator + 4);
+  const rewrittenBody = body.replaceAll(config.localIp, config.publicIp);
+  if (rewrittenBody === body) return message;
+
+  const rewrittenHeaders = headers.replace(
+    /content-length\s*:\s*\d+/i,
+    `Content-Length: ${Buffer.byteLength(rewrittenBody)}`,
+  );
+  return `${rewrittenHeaders}\r\n\r\n${rewrittenBody}`;
+}
+
 const sseClients = new Set();
 const mediaClients = new Set();
 let activeCaller = null;
@@ -372,7 +399,9 @@ server.on('upgrade', (req, socket, head) => {
         });
         upstream.on('message', (data, isBinary) => {
           if (client.readyState === WebSocket.OPEN) {
-            const payload = isBinary ? data : rewriteSipTransport(data.toString(), 'WS', 'WSS');
+            const payload = isBinary
+              ? data
+              : rewriteSdpForBrowser(rewriteSipTransport(data.toString(), 'WS', 'WSS'));
             console.log(`[sip-proxy] freeswitch -> browser: ${isBinary ? 'binary' : String(payload).split(/\r?\n/, 1)[0]}`);
             client.send(payload);
           }

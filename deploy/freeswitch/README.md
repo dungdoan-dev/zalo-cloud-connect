@@ -52,7 +52,7 @@ certificate for production WSS.
 ## 4. Validate and reload
 
 ```bash
-sudo freeswitch -nonat -ncwait
+sudo freeswitch -ncwait
 fs_cli -x "reloadxml"
 fs_cli -x "sofia profile zcc start"
 fs_cli -x "sofia status profile zcc"

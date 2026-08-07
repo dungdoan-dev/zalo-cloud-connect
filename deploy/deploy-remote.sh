@@ -34,7 +34,7 @@ INTERNAL_PROFILE="$FS_CONF/sip_profiles/internal.xml"
 SWITCH_CONF="$FS_CONF/autoload_configs/switch.conf.xml"
 if [ -f "$INTERNAL_PROFILE" ]; then
   sudo sed -i \
-    's|<param name="ext-rtp-ip"[^>]*/>|<param name="ext-rtp-ip" value="stun:stun.freeswitch.org"/>|' \
+    's|<param name="ext-rtp-ip"[^>]*/>|<param name="ext-rtp-ip" value="16.176.236.109"/>|' \
     "$INTERNAL_PROFILE"
   if ! sudo grep -q 'name="stun-enabled"' "$INTERNAL_PROFILE"; then
     sudo sed -i '/<param name="ws-binding"/i\    <param name="stun-enabled" value="true"/>' "$INTERNAL_PROFILE"
