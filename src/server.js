@@ -358,11 +358,17 @@ server.on('upgrade', (req, socket, head) => {
             // SIP messages must remain text frames. ws exposes text frames as
             // Buffers on the server side, which can otherwise be re-sent as
             // binary and ignored by FreeSWITCH/SIP.js.
-            upstream.send(isBinary ? data : data.toString());
+            const payload = isBinary ? data : data.toString();
+            console.log(`[sip-proxy] browser -> freeswitch: ${isBinary ? 'binary' : String(payload).split(/\r?\n/, 1)[0]}`);
+            upstream.send(payload);
           }
         });
         upstream.on('message', (data, isBinary) => {
-          if (client.readyState === WebSocket.OPEN) client.send(isBinary ? data : data.toString());
+          if (client.readyState === WebSocket.OPEN) {
+            const payload = isBinary ? data : data.toString();
+            console.log(`[sip-proxy] freeswitch -> browser: ${isBinary ? 'binary' : String(payload).split(/\r?\n/, 1)[0]}`);
+            client.send(payload);
+          }
         });
         client.on('close', closeBoth);
         upstream.on('close', closeBoth);
