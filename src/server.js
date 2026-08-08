@@ -7,7 +7,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { encodePcmToUlaw } from './codec.js';
 import { SipCaller } from './sip-caller.js';
 import { buildSipTarget, ZccClient } from './zcc-client.js';
-import { getZaloConfig, saveZaloConfig } from './runtime-config.js';
+import { getZaloAccount, getZaloConfig, publicTelephonyConfig, saveTelephonyConfig, syncFreeSwitchRuntime } from './runtime-config.js';
 import { storeWebhook } from './webhook-store.js';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -261,6 +261,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/config') {
     const zalo = getZaloConfig();
+    const telephony = publicTelephonyConfig();
+    const extension = url.searchParams.get('extension') || '';
+    const assignedAccountId = telephony.extensions.find((item) => item.id === extension)?.accountId || '';
     const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
     const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host;
     const browserIsHttps = forwardedProto === 'https' || (forwardedProto === '' && req.socket.encrypted);
@@ -271,6 +274,8 @@ async function handleRequest(req, res) {
       callEngine: config.callEngine,
       appId: zalo.appId,
       oaId: zalo.oaId,
+      accounts: telephony.accounts,
+      assignedAccountId,
       pbx: { wssUrl: browserWssUrl, sipDomain: config.pbxSipDomain },
       webrtc: config.turnUrl && config.turnUsername
         ? { turn: { urls: config.turnUrl, username: config.turnUsername, credential: config.turnPassword } }
@@ -285,13 +290,11 @@ async function handleRequest(req, res) {
       return;
     }
     if (req.method === 'GET') {
-      const zalo = getZaloConfig();
-      sendJson(res, { appId: zalo.appId, oaId: zalo.oaId, inboundId: zalo.inboundId, hasAccessToken: Boolean(zalo.accessToken) });
+      sendJson(res, publicTelephonyConfig());
       return;
     }
     const body = await readJson(req);
-    const saved = saveZaloConfig({ accessToken: body.accessToken, appId: body.appId, oaId: body.oaId, inboundId: body.inboundId });
-    sendJson(res, { ok: true, appId: saved.appId, oaId: saved.oaId, inboundId: saved.inboundId, hasAccessToken: true });
+    sendJson(res, { ok: true, ...saveTelephonyConfig({ accounts: body.accounts, extensions: body.extensions }) });
     return;
   }
 
@@ -314,8 +317,8 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/request-consent') {
-    const zalo = getZaloConfig();
     const body = await readJson(req);
+    const zalo = body.accountId ? getZaloAccount(body.accountId) : getZaloConfig();
     const client = new ZccClient({ accessToken: zalo.accessToken });
     const result = await client.requestConsent({
       phone: body.phone,
@@ -327,8 +330,8 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/check-consent') {
-    const zalo = getZaloConfig();
     const body = await readJson(req);
+    const zalo = body.accountId ? getZaloAccount(body.accountId) : getZaloConfig();
     const client = new ZccClient({ accessToken: zalo.accessToken });
     sendJson(res, await client.checkConsent({ phone: body.phone }));
     return;
@@ -451,6 +454,7 @@ mediaServer.on('connection', (client) => {
   client.on('error', removeClient);
 });
 
+syncFreeSwitchRuntime();
 server.listen(config.port, () => {
   console.log('\n🚀 Zalo Cloud Connect UI');
   console.log(`   http://localhost:${config.port}`);

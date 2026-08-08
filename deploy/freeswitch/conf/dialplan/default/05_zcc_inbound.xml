@@ -1,7 +1,9 @@
 <include>
   <!-- ZCC inbound route/DID -> registered browser extension. -->
   <extension name="zcc-inbound-route-101">
-    <condition field="destination_number" expression="^$${zcc_inbound_id}$">
+    <!-- Deprecated single-OA fallback. Runtime multi-OA routes load first in
+         00_simlydent.xml and own every configured inbound ID. -->
+    <condition field="destination_number" expression="^$">
       <action application="set" data="absolute_codec_string=PCMU"/>
       <action application="set" data="hangup_after_bridge=true"/>
       <action application="bridge" data="user/1001"/>

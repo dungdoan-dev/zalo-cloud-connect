@@ -1,12 +1,20 @@
 import { SimpleUser } from '/vendor/sip.js/platform/web/index.js';
 
 const STORAGE_KEY = 'simlydent-softphone-settings';
+const DEFAULT_SETTINGS = { extension: '', password: '', rememberPassword: true };
 let phone;
 let callActive = false;
 
-function settings() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-  catch { return {}; }
+export function readSettings() {
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; }
+  catch { return { ...DEFAULT_SETTINGS }; }
+}
+
+export function saveSettings(values) {
+  const next = { ...readSettings(), ...values };
+  if (!next.rememberPassword) next.password = '';
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
 }
 
 function mount() {
@@ -32,6 +40,7 @@ function mount() {
 function ui() { return Object.fromEntries(['float','float-toggle','float-panel','status','target-type','callee','consent-actions','check-consent','request-consent','call','answer','decline','mute','hold','message','remote-audio'].map((name) => [name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), document.getElementById(`zcc-${name}`)])); }
 function status(text, error = false) { const u = ui(); u.status.textContent = text; u.message.textContent = error ? text : ''; u.floatToggle.style.background = error ? '#be3d55' : '#0866e8'; }
 function sipUri(user, domain) { return `sip:${String(user).trim().replace(/^sip:/, '')}@${domain}`; }
+function runtimeFor(extension = readSettings().extension) { return fetch(`/api/config?extension=${encodeURIComponent(extension)}`).then((response) => response.json()); }
 
 // ZCC phone targets must be E.164 (+84...). User IDs must stay numeric.
 function zccPhoneTarget(value) {
@@ -53,8 +62,8 @@ async function attachAudio() {
 }
 
 async function connect() {
-  const saved = settings();
-  const runtime = await fetch('/api/config').then((response) => response.json());
+  const saved = readSettings();
+  const runtime = await runtimeFor(saved.extension);
   if (!saved.extension || !saved.password || !runtime.pbx?.wssUrl || !runtime.pbx?.sipDomain) { status('Vào ⚙ để thiết lập extension', true); return; }
   if (phone?.isConnected()) return;
   const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -67,9 +76,9 @@ mount();
 const u = ui();
 u.floatToggle.onclick = () => { u.floatPanel.hidden = !u.floatPanel.hidden; u.floatToggle.setAttribute('aria-expanded', String(!u.floatPanel.hidden)); };
 u.targetType.onchange = () => { const isPhone = u.targetType.value === 'phone'; u.consentActions.hidden = !isPhone; u.callee.placeholder = isPhone ? '0372626121 hoặc +84372626121' : 'Zalo User ID'; };
-u.call.onclick = async () => { try { if (callActive) return phone?.hangup(); if (!phone?.isConnected()) throw new Error('Tổng đài chưa sẵn sàng.'); const runtime = await fetch('/api/config').then((response) => response.json()); const targetType = u.targetType.value; const callee = targetType === 'phone' ? zccPhoneTarget(u.callee.value) : u.callee.value.trim(); if (!callee) throw new Error('Nhập Zalo User ID.'); if (targetType === 'phone') await post('/api/check-consent', { phone: callee }); await phone.call(sipUri(callee, runtime.pbx.sipDomain), { extraHeaders: [`X-ZCC-Target-Type: ${targetType}`] }); } catch (error) { status(error.message, true); } };
-u.checkConsent.onclick = () => post('/api/check-consent', { phone: zccPhoneTarget(u.callee.value) }).then(() => status('Khách hàng đã cấp quyền gọi')).catch((error) => status(error.message, true));
-u.requestConsent.onclick = () => post('/api/request-consent', { phone: zccPhoneTarget(u.callee.value), callType: 'audio', reasonCode: 101 }).then(() => status('Đã gửi yêu cầu gọi điện')).catch((error) => status(error.message, true));
+u.call.onclick = async () => { try { if (callActive) return phone?.hangup(); if (!phone?.isConnected()) throw new Error('Tổng đài chưa sẵn sàng.'); const runtime = await runtimeFor(); const accountId = runtime.assignedAccountId; if (!accountId) throw new Error('Extension chưa được gán Zalo OA.'); const targetType = u.targetType.value; const callee = targetType === 'phone' ? zccPhoneTarget(u.callee.value) : u.callee.value.trim(); if (!callee) throw new Error('Nhập Zalo User ID.'); if (targetType === 'phone') await post('/api/check-consent', { phone: callee, accountId }); await phone.call(sipUri(callee, runtime.pbx.sipDomain), { extraHeaders: [`X-ZCC-Target-Type: ${targetType}`, `X-ZCC-Account-ID: ${accountId}`] }); } catch (error) { status(error.message, true); } };
+u.checkConsent.onclick = async () => { try { const runtime = await runtimeFor(); await post('/api/check-consent', { phone: zccPhoneTarget(u.callee.value), accountId: runtime.assignedAccountId }); status('Khách hàng đã cấp quyền gọi'); } catch (error) { status(error.message, true); } };
+u.requestConsent.onclick = async () => { try { const runtime = await runtimeFor(); await post('/api/request-consent', { phone: zccPhoneTarget(u.callee.value), accountId: runtime.assignedAccountId, callType: 'audio', reasonCode: 101 }); status('Đã gửi yêu cầu gọi điện'); } catch (error) { status(error.message, true); } };
 u.answer.onclick = () => phone?.answer().catch((error) => status(error.message, true));
 u.decline.onclick = () => phone?.decline();
 u.mute.onclick = () => { if (phone?.isMuted()) phone.unmute(); else phone?.mute(); };

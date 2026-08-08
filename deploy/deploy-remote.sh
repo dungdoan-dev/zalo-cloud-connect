@@ -9,6 +9,7 @@ cd "$APP_DIR"
 
 sudo install -d -o simlydent -g simlydent "$APP_DIR"
 sudo install -d -o simlydent -g simlydent "$APP_DIR/data"
+sudo install -d -o simlydent -g freeswitch -m 2770 "$APP_DIR/data/freeswitch"
 sudo install -d -o freeswitch -g freeswitch "$FS_DIR/var/lib/freeswitch/recordings/zcc"
 
 if ! command -v node >/dev/null 2>&1; then
@@ -22,6 +23,8 @@ sudo install -m 0644 deploy/systemd/freeswitch.service /etc/systemd/system/frees
 sudo install -m 0644 deploy/freeswitch/conf/sip_profiles/zcc.xml "$FS_CONF/sip_profiles/zcc.xml"
 sudo install -d "$FS_CONF/directory/default"
 sudo install -m 0644 deploy/freeswitch/conf/directory/default/1001.xml "$FS_CONF/directory/default/1001.xml"
+sudo ln -sfn "$APP_DIR/data/freeswitch/directory.xml" "$FS_CONF/directory/default/00_simlydent.xml"
+sudo ln -sfn "$APP_DIR/data/freeswitch/dialplan.xml" "$FS_CONF/dialplan/default/00_simlydent.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/default/05_zcc_inbound.xml "$FS_CONF/dialplan/default/05_zcc_inbound.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/default/10_zcc_outbound.xml "$FS_CONF/dialplan/default/10_zcc_outbound.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/zcc.xml "$FS_CONF/dialplan/zcc.xml"
@@ -53,6 +56,11 @@ if [ -f "$SWITCH_CONF" ]; then
 fi
 
 sudo chown -R simlydent:simlydent "$APP_DIR"
+# Runtime directory is written by Node (simlydent) and read by FreeSWITCH.
+# The setgid bit keeps newly generated XML files in the freeswitch group.
+sudo chown -R simlydent:freeswitch "$APP_DIR/data/freeswitch"
+sudo find "$APP_DIR/data/freeswitch" -type d -exec chmod 2770 {} +
+sudo find "$APP_DIR/data/freeswitch" -type f -exec chmod 0640 {} +
 sudo chown -R freeswitch:freeswitch "$FS_DIR/var/lib/freeswitch/recordings"
 sudo -u simlydent npm ci --omit=dev
 

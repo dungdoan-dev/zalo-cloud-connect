@@ -1,17 +1,21 @@
 <include>
   <extension name="zcc-outbound">
     <!-- Phone in international format (84...) or numeric Zalo User ID. -->
-    <condition field="destination_number" expression="^(\+?\d{8,20})$">
-      <action application="set" data="hangup_after_bridge=true"/>
-      <action application="set" data="zcc_target_type=${sip_h_X-ZCC-Target-Type}"/>
-      <action application="log" data="INFO ZCC outbound target_type=${zcc_target_type} destination=$1"/>
-      <action application="set" data="absolute_codec_string=PCMU"/>
-      <action application="set" data="record_stereo=true"/>
-      <action application="record_session" data="$${recordings_dir}/zcc/${uuid}.wav"/>
-      <action application="set" data="effective_caller_id_number=$${zcc_oa_id}"/>
-      <action application="set" data="sip_from_user=$${zcc_oa_id}"/>
-      <action application="set" data="sip_from_uri=sip:$${zcc_oa_id}@$${zcc_domain}"/>
-      <action application="bridge" data="sofia/zcc/$1@$${zcc_domain};transport=tcp"/>
+    <!-- Multi-OA calls carry X-ZCC-Account-ID and are handled by the runtime
+         00_simlydent.xml dialplan. Keep this only for headerless legacy calls. -->
+    <condition field="${sip_h_X-ZCC-Account-ID}" expression="^$">
+      <condition field="destination_number" expression="^(\+?\d{8,20})$">
+        <action application="set" data="hangup_after_bridge=true"/>
+        <action application="set" data="zcc_target_type=${sip_h_X-ZCC-Target-Type}"/>
+        <action application="log" data="INFO ZCC outbound target_type=${zcc_target_type} destination=$1"/>
+        <action application="set" data="absolute_codec_string=PCMU"/>
+        <action application="set" data="record_stereo=true"/>
+        <action application="record_session" data="$${recordings_dir}/zcc/${uuid}.wav"/>
+        <action application="set" data="effective_caller_id_number=$${zcc_oa_id}"/>
+        <action application="set" data="sip_from_user=$${zcc_oa_id}"/>
+        <action application="set" data="sip_from_uri=sip:$${zcc_oa_id}@$${zcc_domain}"/>
+        <action application="bridge" data="sofia/zcc/$1@$${zcc_domain};transport=tcp"/>
+      </condition>
     </condition>
   </extension>
 </include>
