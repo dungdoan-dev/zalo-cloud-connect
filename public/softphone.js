@@ -63,6 +63,19 @@ function sipUri(user) {
   if (!value) throw new Error('Thiếu số điện thoại hoặc User ID.');
   return value.includes('@') ? `sip:${value}` : `sip:${value}@${ui.domain.value.trim()}`;
 }
+
+// ZCC requires a phone callee in E.164 form: +84xxxxxxxxx. A Zalo User ID
+// remains numeric and must not receive a leading plus.
+function zccPhoneTarget(value) {
+  const compact = String(value || '').trim().replace(/[\s().-]/g, '');
+  const international = compact.startsWith('0') ? `+84${compact.slice(1)}`
+    : compact.startsWith('84') ? `+${compact}`
+      : compact;
+  if (!/^\+84\d{8,10}$/.test(international)) {
+    throw new Error('Số điện thoại ZCC phải có dạng +84xxxxxxxxx.');
+  }
+  return international;
+}
 async function requirePhoneConsent(phone) {
   if (ui.targetType.value !== 'phone') return;
   const response = await fetch('/api/check-consent', {
@@ -134,10 +147,14 @@ ui.call.addEventListener('click', async () => {
     if (!phone?.isConnected()) throw new Error('Extension chưa đăng ký.');
     if (callActive) await phone.hangup();
     else {
-      await requirePhoneConsent(ui.callee.value.trim());
-      const destination = sipUri(ui.callee.value);
-      writeLog(`INVITE → ${destination}`);
       const targetType = ui.targetType.value === 'user_id' ? 'user_id' : 'phone';
+      const callee = targetType === 'phone'
+        ? zccPhoneTarget(ui.callee.value)
+        : ui.callee.value.trim();
+      if (!callee) throw new Error('Thiếu Zalo User ID.');
+      await requirePhoneConsent(callee);
+      const destination = sipUri(callee);
+      writeLog(`INVITE → ${destination}`);
       await phone.call(destination, {
         extraHeaders: [`X-ZCC-Target-Type: ${targetType}`],
       }, { requestDelegate: {

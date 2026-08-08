@@ -68,7 +68,7 @@ test("validate phone và tạo SIP target", () => {
       port: 5060,
       transport: "UDP/TCP",
       from: "sip:1234567890@9876543210.zcc.openapi.zaloapp.com",
-      to: "sip:84773543888@9876543210.zcc.openapi.zaloapp.com",
+      to: "sip:+84773543888@9876543210.zcc.openapi.zaloapp.com",
     },
   );
 });

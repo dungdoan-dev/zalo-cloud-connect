@@ -1,7 +1,7 @@
 <include>
   <extension name="zcc-outbound">
     <!-- Phone in international format (84...) or numeric Zalo User ID. -->
-    <condition field="destination_number" expression="^(\d{8,20})$">
+    <condition field="destination_number" expression="^(\+?\d{8,20})$">
       <action application="set" data="hangup_after_bridge=true"/>
       <action application="set" data="zcc_target_type=${sip_h_X-ZCC-Target-Type}"/>
       <action application="log" data="INFO ZCC outbound target_type=${zcc_target_type} destination=$1"/>

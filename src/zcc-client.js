@@ -115,8 +115,8 @@ export class ZccClient {
 export function buildSipTarget({ appId, oaId, callee }) {
   const normalizedAppId = validateNumericId(appId, "App ID");
   const normalizedOaId = validateNumericId(oaId, "OA ID");
-  const normalizedCallee = String(callee ?? "").trim().replace(/^\+/, "");
-  if (!/^\d+$/.test(normalizedCallee)) {
+  const normalizedCallee = String(callee ?? "").trim();
+  if (!/^\+?\d+$/.test(normalizedCallee)) {
     throw new TypeError("Callee phải là số điện thoại hoặc Zalo User ID dạng số.");
   }
 
