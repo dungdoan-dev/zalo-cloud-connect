@@ -597,6 +597,53 @@
       color: var(--text-muted);
     }
 
+    .wizard-steps {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 18px;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      background: var(--surface-1);
+    }
+
+    .wizard-step {
+      min-height: 52px;
+      padding: 8px 10px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .wizard-step span {
+      display: inline-grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--surface-3);
+      font-family: var(--font-mono);
+    }
+
+    .wizard-step.active { color: #fff; background: rgba(22, 119, 255, .14); border-color: rgba(22, 119, 255, .45); }
+    .wizard-step.active span { background: var(--zalo-blue); }
+    .wizard-panel[hidden] { display: none; }
+    .wizard-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; }
+    .route-summary { color: var(--text-muted); font-size: 13px; line-height: 1.65; }
+    .review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+    .review-stat { padding: 16px; background: var(--surface-2); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+    .review-stat strong { display: block; margin-top: 4px; font-size: 24px; color: #fff; }
+    .oa [data-field="inboundStrategy"], .oa [data-field="inboundTargetType"], .oa [data-field="inboundTargetId"] { display: none; }
+    .oa div:has(> [data-field="inboundStrategy"]), .oa div:has(> [data-field="inboundTargetType"]), .oa div:has(> [data-field="inboundTargetId"]) { display: none; }
+
     @media (max-width: 860px) {
       .grid {
         grid-template-columns: 1fr;
@@ -614,6 +661,8 @@
         gap: 14px;
         align-items: flex-start;
       }
+      .wizard-steps { grid-template-columns: 1fr; }
+      .review-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -695,9 +744,16 @@
 
     <!-- Main Editor Panel -->
     <main id="editor" hidden>
+      <nav class="wizard-steps" aria-label="Cac buoc cau hinh">
+        <button class="wizard-step active" type="button" data-step="1"><span>1</span>Zalo OA</button>
+        <button class="wizard-step" type="button" data-step="2"><span>2</span>Nhan vien</button>
+        <button class="wizard-step" type="button" data-step="3"><span>3</span>May nhanh</button>
+        <button class="wizard-step" type="button" data-step="4"><span>4</span>Cuoc goi vao</button>
+        <button class="wizard-step" type="button" data-step="5"><span>5</span>Ra soat & Luu</button>
+      </nav>
 
       <!-- Zalo Official Accounts Card -->
-      <section class="glass-card">
+      <section class="glass-card wizard-panel" data-wizard-panel="1">
         <div class="card-header">
           <div class="card-title">
             <div class="card-title-icon">
@@ -714,7 +770,7 @@
       </section>
 
       <!-- Employees Card -->
-      <section class="glass-card">
+      <section class="glass-card wizard-panel" data-wizard-panel="2" hidden>
         <div class="card-header">
           <div class="card-title"><div class="card-title-icon">👤</div>Nhân Viên</div>
           <button id="add-employee" class="btn btn-secondary" type="button">+ Thêm Nhân Viên</button>
@@ -723,7 +779,7 @@
       </section>
 
       <!-- Extensions Card -->
-      <section class="glass-card">
+      <section class="glass-card wizard-panel" data-wizard-panel="3" hidden>
         <div class="card-header">
           <div class="card-title">
             <div class="card-title-icon">
@@ -739,8 +795,27 @@
         <div id="extensions"></div>
       </section>
 
+      <section class="glass-card wizard-panel" data-wizard-panel="4" hidden>
+        <div class="card-header">
+          <div class="card-title">Luong goi vao: Direct Extension</div>
+        </div>
+        <p class="route-summary">Chon may nhanh hoac nhan vien nhan cuoc goi cho tung Zalo OA. Neu chon nhan vien, tat ca may nhanh cua nhan vien thuoc OA do se do chuong dong thoi.</p>
+        <div id="routes"></div>
+      </section>
+
       <!-- Sticky Save Actions Bar -->
-      <div class="save-bar">
+      <section class="glass-card wizard-panel" data-wizard-panel="5" hidden>
+        <div class="card-header"><div class="card-title">Ra soat cau hinh</div></div>
+        <p class="route-summary">Kiem tra tong quan truoc khi luu. He thong se tao lai directory va dialplan FreeSWITCH tu du lieu nay.</p>
+        <div id="review" class="review-grid"></div>
+      </section>
+
+      <div class="wizard-actions">
+        <button id="previous-step" class="btn btn-secondary" type="button">← Quay lai</button>
+        <button id="next-step" class="btn btn-primary" type="button">Tiep tuc →</button>
+      </div>
+
+      <div class="save-bar wizard-panel" data-wizard-panel="5" hidden>
         <div class="save-info">
           <div class="save-title">Lưu & Đồng Bộ Tổng Đài FreeSWITCH</div>
           <div class="save-sub">FreeSWITCH sẽ tự động nạp lại cấu hình XML (reload XML) ngay sau khi nhấn lưu.</div>
@@ -822,6 +897,17 @@
     </article>
   </template>
 
+  <template id="route-template">
+    <article class="route card-item">
+      <div class="item-header"><span class="item-badge">Direct Extension</span><span class="route-account-name"></span></div>
+      <input data-field="accountId" type="hidden">
+      <div class="grid">
+        <div><label>Loai dich nhan cuoc goi</label><select data-field="inboundTargetType"><option value="extension">May nhanh</option><option value="employee">Nhan vien</option></select></div>
+        <div><label>Dich nhan cuoc goi</label><select data-field="inboundTargetId"></select></div>
+      </div>
+    </article>
+  </template>
+
   <template id="extension-template">
     <article class="extension card-item">
       <div class="item-header">
@@ -864,6 +950,8 @@
   <script>
     const $ = id => document.getElementById(id);
     let state = { accounts: [], employees: [], extensions: [] };
+    let wizardStep = 1;
+    const routeValues = new Map();
 
     function togglePass(id) {
       const el = $(id);
@@ -971,6 +1059,80 @@
       };
     }
 
+    // Routing is deliberately rendered outside the OA editor. This keeps the
+    // setup order explicit: OA -> employee -> extension -> inbound routing.
+    function collectRoutes() {
+      document.querySelectorAll('.route').forEach(card => {
+        const route = fields(card);
+        if (route.accountId) routeValues.set(route.accountId, route);
+      });
+    }
+
+    function renderInboundOptions() {
+      collectRoutes();
+      const accounts = [...document.querySelectorAll('.oa')].map(fields);
+      const employees = [...document.querySelectorAll('.employee')].map(fields);
+      const extensions = [...document.querySelectorAll('.extension')].map(fields);
+      const container = $('routes');
+      if (!container) return;
+      container.innerHTML = '';
+
+      accounts.forEach(account => {
+        const card = clone('route-template');
+        const route = routeValues.get(account.id) || account;
+        const type = route.inboundTargetType || 'extension';
+        const accountId = account.id || '';
+        card.querySelector('[data-field="accountId"]').value = accountId;
+        card.querySelector('.route-account-name').textContent = account.name || accountId || 'OA chua dat ten';
+        card.querySelector('[data-field="inboundTargetType"]').value = type;
+        const target = card.querySelector('[data-field="inboundTargetId"]');
+        const choices = type === 'employee'
+          ? employees.filter(employee => extensions.some(extension => extension.accountId === accountId && extension.employeeId === employee.id))
+          : extensions.filter(extension => extension.accountId === accountId);
+        target.innerHTML = `<option value="">Chua dinh tuyen</option>${choices.map(item => `<option value="${item.id}">${type === 'employee' ? item.name || item.id : item.id} — ${type === 'employee' ? item.department || 'Nhan vien' : item.name || 'May nhanh'}</option>`).join('')}`;
+        target.value = route.inboundTargetId || '';
+        container.append(card);
+      });
+    }
+
+    function readState() {
+      collectRoutes();
+      return {
+        accounts: [...document.querySelectorAll('.oa')].map(card => {
+          const account = fields(card);
+          const route = routeValues.get(account.id) || {};
+          return { ...account, inboundStrategy: 'direct', inboundTargetType: route.inboundTargetType || 'extension', inboundTargetId: route.inboundTargetId || '' };
+        }),
+        employees: [...document.querySelectorAll('.employee')].map(employee => ({ ...fields(employee), active: employee.querySelector('[data-field="active"]').value === 'true' })),
+        extensions: [...document.querySelectorAll('.extension')].map(fields)
+      };
+    }
+
+    function validateStep(step) {
+      const data = readState();
+      if (step === 1 && (!data.accounts.length || data.accounts.some(item => !item.id || !item.name || !item.appId || !item.oaId || !item.inboundId))) throw Error('Hay tao day du thong tin it nhat mot Zalo OA.');
+      if (step === 2 && (!data.employees.length || data.employees.some(item => !item.id || !item.name))) throw Error('Hay tao it nhat mot nhan vien co ma va ten.');
+      if (step === 3 && (!data.extensions.length || data.extensions.some(item => !item.id || !item.name || !item.accountId || !item.employeeId))) throw Error('Moi may nhanh can co so, ten, Zalo OA va nhan vien.');
+      if (step === 4 && data.accounts.some(item => !item.inboundTargetId)) throw Error('Hay chon dich nhan cuoc goi vao cho tung Zalo OA.');
+    }
+
+    function renderReview() {
+      const data = readState();
+      $('review').innerHTML = [
+        ['Zalo OA', data.accounts.length], ['Nhan vien', data.employees.length], ['May nhanh', data.extensions.length]
+      ].map(([label, value]) => `<div class="review-stat">${label}<strong>${value}</strong></div>`).join('');
+    }
+
+    function setWizardStep(next) {
+      wizardStep = Math.max(1, Math.min(5, Number(next)));
+      if (wizardStep === 4) renderInboundOptions();
+      if (wizardStep === 5) renderReview();
+      document.querySelectorAll('[data-wizard-panel]').forEach(panel => { panel.hidden = Number(panel.dataset.wizardPanel) !== wizardStep; });
+      document.querySelectorAll('.wizard-step').forEach(button => button.classList.toggle('active', Number(button.dataset.step) === wizardStep));
+      $('previous-step').hidden = wizardStep === 1;
+      $('next-step').hidden = wizardStep === 5;
+    }
+
     async function load() {
       status('⏳ Đang tải dữ liệu cấu hình từ hệ thống...');
       const response = await fetch('/api/settings', {
@@ -979,6 +1141,12 @@
       const data = await response.json();
       if (!response.ok) throw Error(data.error || 'Không thể tải cấu hình');
       state = data;
+      routeValues.clear();
+      data.accounts.forEach(account => routeValues.set(account.id, {
+        accountId: account.id,
+        inboundTargetType: account.inboundTargetType || 'extension',
+        inboundTargetId: account.inboundTargetId || ''
+      }));
       $('accounts').innerHTML = '';
       $('employees').innerHTML = '';
       $('extensions').innerHTML = '';
@@ -987,6 +1155,7 @@
       data.extensions.forEach(appendExtension);
       renderExtensionOptions();
       $('editor').hidden = false;
+      setWizardStep(1);
       status('✅ Đã tải thành công dữ liệu cấu hình Zalo OA & Máy nhánh.', true);
     }
 
@@ -1007,6 +1176,26 @@
     $('add-employee').onclick = () => { appendEmployee({ id: `employee-${Date.now()}`, name: 'Nhân viên mới', active: true }); renderExtensionOptions(); };
     document.addEventListener('change', (event) => {
       if (event.target.matches('.extension [data-field="id"],.extension [data-field="name"],.extension [data-field="accountId"],.extension [data-field="employeeId"],.employee [data-field],.oa [data-field="id"],.oa [data-field="inboundTargetType"]')) renderExtensionOptions();
+    });
+
+    document.querySelectorAll('.wizard-step').forEach(button => {
+      button.onclick = () => {
+        const next = Number(button.dataset.step);
+        try {
+          if (next > wizardStep) validateStep(wizardStep);
+          setWizardStep(next);
+        } catch (error) { status(`Loi: ${error.message}`, false, true); }
+      };
+    });
+
+    $('previous-step').onclick = () => setWizardStep(wizardStep - 1);
+    $('next-step').onclick = () => {
+      try { validateStep(wizardStep); setWizardStep(wizardStep + 1); }
+      catch (error) { status(`Loi: ${error.message}`, false, true); }
+    };
+    $('add-oa').addEventListener('click', () => setTimeout(renderExtensionOptions));
+    document.addEventListener('change', (event) => {
+      if (event.target.matches('.route [data-field="inboundTargetType"]')) renderInboundOptions();
     });
 
     $('save').onclick = async () => {
