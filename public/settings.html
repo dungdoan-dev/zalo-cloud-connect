@@ -747,12 +747,12 @@
 
     <!-- Main Editor Panel -->
     <main id="editor" hidden>
-      <nav class="wizard-steps" aria-label="Cac buoc cau hinh">
+      <nav class="wizard-steps" aria-label="Các bước cấu hình">
         <button class="wizard-step active" type="button" data-step="1"><span>1</span>Zalo OA</button>
-        <button class="wizard-step" type="button" data-step="2"><span>2</span>Nhan vien</button>
-        <button class="wizard-step" type="button" data-step="3"><span>3</span>May nhanh</button>
-        <button class="wizard-step" type="button" data-step="4"><span>4</span>Cuoc goi vao</button>
-        <button class="wizard-step" type="button" data-step="5"><span>5</span>Ra soat & Luu</button>
+        <button class="wizard-step" type="button" data-step="2"><span>2</span>Nhân viên</button>
+        <button class="wizard-step" type="button" data-step="3"><span>3</span>Máy nhánh</button>
+        <button class="wizard-step" type="button" data-step="4"><span>4</span>Cuộc gọi vào</button>
+        <button class="wizard-step" type="button" data-step="5"><span>5</span>Rà soát & Lưu</button>
       </nav>
 
       <!-- Zalo Official Accounts Card -->
@@ -800,22 +800,22 @@
 
       <section class="glass-card wizard-panel" data-wizard-panel="4" hidden>
         <div class="card-header">
-          <div class="card-title">Luong goi vao: Direct Extension</div>
+          <div class="card-title">Luồng cuộc gọi vào: Direct Extension</div>
         </div>
-        <p class="route-summary">Chon may nhanh hoac nhan vien nhan cuoc goi cho tung Zalo OA. Neu chon nhan vien, tat ca may nhanh cua nhan vien thuoc OA do se do chuong dong thoi.</p>
+        <p class="route-summary">Chọn máy nhánh hoặc nhân viên nhận cuộc gọi cho từng Zalo OA. Nếu chọn nhân viên, tất cả máy nhánh của nhân viên thuộc OA đó sẽ đổ chuông đồng thời.</p>
         <div id="routes"></div>
       </section>
 
       <!-- Sticky Save Actions Bar -->
       <section class="glass-card wizard-panel" data-wizard-panel="5" hidden>
-        <div class="card-header"><div class="card-title">Ra soat cau hinh</div></div>
-        <p class="route-summary">Kiem tra tong quan truoc khi luu. He thong se tao lai directory va dialplan FreeSWITCH tu du lieu nay.</p>
+        <div class="card-header"><div class="card-title">Rà soát cấu hình</div></div>
+        <p class="route-summary">Kiểm tra tổng quan trước khi lưu. Hệ thống sẽ tạo lại directory và dialplan FreeSWITCH từ dữ liệu này.</p>
         <div id="review" class="review-grid"></div>
       </section>
 
       <div class="wizard-actions">
-        <button id="previous-step" class="btn btn-secondary" type="button">← Quay lai</button>
-        <button id="next-step" class="btn btn-primary" type="button">Tiep tuc →</button>
+        <button id="previous-step" class="btn btn-secondary" type="button">← Quay lại</button>
+        <button id="next-step" class="btn btn-primary" type="button">Tiếp tục →</button>
       </div>
 
       <div class="save-bar wizard-panel" data-wizard-panel="5" hidden>
@@ -905,11 +905,11 @@
       <div class="item-header"><span class="item-badge">Direct Extension</span><span class="route-account-name"></span></div>
       <input data-field="accountId" type="hidden">
       <div class="grid">
-        <div><label>Loai dich nhan cuoc goi</label><select data-field="inboundTargetType"><option value="extension">May nhanh</option><option value="employee">Nhan vien</option></select></div>
-        <div><label>Dich nhan cuoc goi</label><select data-field="inboundTargetId"></select></div>
+        <div><label>Loại đích nhận cuộc gọi</label><select data-field="inboundTargetType"><option value="extension">Máy nhánh</option><option value="employee">Nhân viên</option></select></div>
+        <div><label>Đích nhận cuộc gọi</label><select data-field="inboundTargetId"></select></div>
       </div>
-      <div class="route-preview" data-route-preview>Chon dich de xem truoc luong do chuong.</div>
-      <div class="route-test-row"><button class="btn btn-secondary test-inbound-route" type="button">Test do chuong</button></div>
+      <div class="route-preview" data-route-preview>Chọn đích để xem trước luồng đổ chuông.</div>
+      <div class="route-test-row"><button class="btn btn-secondary test-inbound-route" type="button">Test đổ chuông</button></div>
     </article>
   </template>
 
@@ -1089,17 +1089,17 @@
         const type = route.inboundTargetType || 'extension';
         const accountId = account.id || '';
         card.querySelector('[data-field="accountId"]').value = accountId;
-        card.querySelector('.route-account-name').textContent = account.name || accountId || 'OA chua dat ten';
+        card.querySelector('.route-account-name').textContent = account.name || accountId || 'OA chưa đặt tên';
         card.querySelector('[data-field="inboundTargetType"]').value = type;
         const target = card.querySelector('[data-field="inboundTargetId"]');
         const choices = type === 'employee'
           ? employees.filter(employee => employee.active !== 'false')
           : extensions.filter(extension => extension.accountId === accountId);
-        target.innerHTML = `<option value="">Chua dinh tuyen</option>${choices.map(item => {
+        target.innerHTML = `<option value="">Chưa định tuyến</option>${choices.map(item => {
           const hasExtension = type !== 'employee' || extensions.some(extension => extension.accountId === accountId && extension.employeeId === item.id);
           const detail = type === 'employee'
-            ? `${item.department || 'Nhan vien'}${hasExtension ? '' : ' — chua co may nhanh thuoc OA nay'}`
-            : item.name || 'May nhanh';
+            ? `${item.department || 'Nhân viên'}${hasExtension ? '' : ' — chưa có máy nhánh thuộc OA này'}`
+            : item.name || 'Máy nhánh';
           return `<option value="${item.id}">${type === 'employee' ? item.name || item.id : item.id} — ${detail}</option>`;
         }).join('')}`;
         target.value = route.inboundTargetId || '';
@@ -1109,8 +1109,8 @@
           : extensions.filter(item => item.accountId === accountId && item.id === target.value);
         const preview = card.querySelector('[data-route-preview]');
         preview.textContent = !selected
-          ? 'Chua co dich nhan cuoc goi. Chon nhan vien hoac may nhanh de test.'
-          : `Luong: ${account.name || accountId} -> ${type === 'employee' ? selected.name || selected.id : `May nhanh ${selected.id}`} -> ${resolved.length ? resolved.map(item => `may ${item.id}`).join(', ') : 'chua co may nhanh hop le'}`;
+          ? 'Chưa có đích nhận cuộc gọi. Chọn nhân viên hoặc máy nhánh để test.'
+          : `Luồng: ${account.name || accountId} -> ${type === 'employee' ? selected.name || selected.id : `Máy nhánh ${selected.id}`} -> ${resolved.length ? resolved.map(item => `máy ${item.id}`).join(', ') : 'chưa có máy nhánh hợp lệ'}`;
         container.append(card);
       });
     }
@@ -1130,10 +1130,10 @@
 
     function validateStep(step) {
       const data = readState();
-      if (step === 1 && (!data.accounts.length || data.accounts.some(item => !item.id || !item.name || !item.appId || !item.oaId || !item.inboundId))) throw Error('Hay tao day du thong tin it nhat mot Zalo OA.');
-      if (step === 2 && (!data.employees.length || data.employees.some(item => !item.id || !item.name))) throw Error('Hay tao it nhat mot nhan vien co ma va ten.');
-      if (step === 3 && (!data.extensions.length || data.extensions.some(item => !item.id || !item.name || !item.accountId || !item.employeeId))) throw Error('Moi may nhanh can co so, ten, Zalo OA va nhan vien.');
-      if (step === 4 && data.accounts.some(item => !item.inboundTargetId)) throw Error('Hay chon dich nhan cuoc goi vao cho tung Zalo OA.');
+      if (step === 1 && (!data.accounts.length || data.accounts.some(item => !item.id || !item.name || !item.appId || !item.oaId || !item.inboundId))) throw Error('Hãy tạo đầy đủ thông tin ít nhất một Zalo OA.');
+      if (step === 2 && (!data.employees.length || data.employees.some(item => !item.id || !item.name))) throw Error('Hãy tạo ít nhất một nhân viên có mã và tên.');
+      if (step === 3 && (!data.extensions.length || data.extensions.some(item => !item.id || !item.name || !item.accountId || !item.employeeId))) throw Error('Mỗi máy nhánh cần có số, tên, Zalo OA và nhân viên.');
+      if (step === 4 && data.accounts.some(item => !item.inboundTargetId)) throw Error('Hãy chọn đích nhận cuộc gọi vào cho từng Zalo OA.');
     }
 
     async function persistCurrentStep(step) {
@@ -1148,9 +1148,9 @@
         body: JSON.stringify(payload)
       });
       const saved = await response.json();
-      if (!response.ok) throw Error(saved.error || 'Khong the luu du lieu cua buoc nay.');
+      if (!response.ok) throw Error(saved.error || 'Không thể lưu dữ liệu của bước này.');
       state = saved;
-      status(`Da luu cau hinh buoc ${step}.`, true);
+      status(`Đã lưu cấu hình bước ${step}.`, true);
     }
 
     async function continueWizard() {
@@ -1166,7 +1166,7 @@
         body: JSON.stringify(readState())
       });
       const data = await response.json();
-      if (!response.ok) throw Error(data.error || 'Khong the ap dung cau hinh.');
+      if (!response.ok) throw Error(data.error || 'Không thể áp dụng cấu hình.');
       state = data;
       return data;
     }
@@ -1174,7 +1174,7 @@
     function renderReview() {
       const data = readState();
       $('review').innerHTML = [
-        ['Zalo OA', data.accounts.length], ['Nhan vien', data.employees.length], ['May nhanh', data.extensions.length]
+        ['Zalo OA', data.accounts.length], ['Nhân viên', data.employees.length], ['Máy nhánh', data.extensions.length]
       ].map(([label, value]) => `<div class="review-stat">${label}<strong>${value}</strong></div>`).join('');
     }
 
@@ -1239,14 +1239,14 @@
         try {
           if (next > wizardStep) await continueWizard();
           else setWizardStep(next);
-        } catch (error) { status(`Loi: ${error.message}`, false, true); }
+        } catch (error) { status(`Lỗi: ${error.message}`, false, true); }
       };
     });
 
     $('previous-step').onclick = () => setWizardStep(wizardStep - 1);
     $('next-step').onclick = async () => {
       try { await continueWizard(); }
-      catch (error) { status(`Loi: ${error.message}`, false, true); }
+      catch (error) { status(`Lỗi: ${error.message}`, false, true); }
     };
     $('add-oa').addEventListener('click', () => setTimeout(renderExtensionOptions));
     document.addEventListener('change', (event) => {
@@ -1260,7 +1260,7 @@
       try {
         validateStep(4);
         button.disabled = true;
-        status('Dang ap dung cau hinh va tao cuoc goi test...');
+        status('Đang áp dụng cấu hình và tạo cuộc gọi test...');
         await applyFullConfiguration();
         const response = await fetch('/api/settings/test-inbound', {
           method: 'POST',
@@ -1268,10 +1268,10 @@
           body: JSON.stringify({ accountId: route.querySelector('[data-field="accountId"]').value })
         });
         const result = await response.json();
-        if (!response.ok) throw Error(result.error || 'Khong the tao cuoc goi test.');
-        status(`Da gui test do chuong toi may nhanh: ${result.targets.join(', ')}.`, true);
+        if (!response.ok) throw Error(result.error || 'Không thể tạo cuộc gọi test.');
+        status(`Đã gửi test đổ chuông tới máy nhánh: ${result.targets.join(', ')}.`, true);
       } catch (error) {
-        status(`Loi test do chuong: ${error.message}`, false, true);
+        status(`Lỗi test đổ chuông: ${error.message}`, false, true);
       } finally {
         button.disabled = false;
       }
@@ -1283,18 +1283,18 @@
         active: card.querySelector('[data-field="active"]').value === 'true',
         _previousId: card.dataset.persistedEmployeeId || ''
       };
-      if (!employee.id || !employee.name) throw Error('Nhap ma va ten nhan vien truoc khi luu.');
+      if (!employee.id || !employee.name) throw Error('Nhập mã và tên nhân viên trước khi lưu.');
       const response = await fetch('/api/settings/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
         body: JSON.stringify(employee)
       });
       const data = await response.json();
-      if (!response.ok) throw Error(data.error || 'Khong the luu nhan vien.');
+      if (!response.ok) throw Error(data.error || 'Không thể lưu nhân viên.');
       card.dataset.persistedEmployeeId = employee.id;
       state = data;
       renderExtensionOptions();
-      if (!quiet) status(`Da luu nhan vien ${employee.name}.`, true);
+      if (!quiet) status(`Đã lưu nhân viên ${employee.name}.`, true);
     }
 
     async function persistExtensionsDraft() {
@@ -1305,15 +1305,15 @@
         body: JSON.stringify({ extensions })
       });
       const data = await response.json();
-      if (!response.ok) throw Error(data.error || 'Khong the luu may nhanh.');
+      if (!response.ok) throw Error(data.error || 'Không thể lưu máy nhánh.');
       state = data;
-      status('Da luu gan nhan vien cho may nhanh.', true);
+      status('Đã lưu gán nhân viên cho máy nhánh.', true);
     }
 
     // Create the employee on the server before adding it to the form. This
     // prevents an extension/employee reference from blocking the final save.
     $('add-employee').onclick = async () => {
-      const employee = { id: `employee-${Date.now()}`, name: 'Nhan vien moi', department: '', active: true };
+      const employee = { id: `employee-${Date.now()}`, name: 'Nhân viên mới', department: '', active: true };
       try {
         const response = await fetch('/api/settings/employees', {
           method: 'POST',
@@ -1321,24 +1321,24 @@
           body: JSON.stringify(employee)
         });
         const data = await response.json();
-        if (!response.ok) throw Error(data.error || 'Khong the tao nhan vien.');
+        if (!response.ok) throw Error(data.error || 'Không thể tạo nhân viên.');
         state = data;
         appendEmployee(employee);
         const card = $('employees').lastElementChild;
         card.dataset.persistedEmployeeId = employee.id;
         renderExtensionOptions();
-        status(`Da tao va luu ngay nhan vien ${employee.name}.`, true);
-      } catch (error) { status(`Loi: ${error.message}`, false, true); }
+        status(`Đã tạo và lưu ngay nhân viên ${employee.name}.`, true);
+      } catch (error) { status(`Lỗi: ${error.message}`, false, true); }
     };
 
     document.addEventListener('change', (event) => {
       if (!event.target.matches('.employee [data-field]')) return;
-      persistEmployee(event.target.closest('.employee')).catch(error => status(`Loi: ${error.message}`, false, true));
+      persistEmployee(event.target.closest('.employee')).catch(error => status(`Lỗi: ${error.message}`, false, true));
     });
 
     document.addEventListener('change', (event) => {
       if (!event.target.matches('.extension [data-field="employeeId"], .extension [data-field="accountId"]')) return;
-      persistExtensionsDraft().catch(error => status(`Loi: ${error.message}`, false, true));
+      persistExtensionsDraft().catch(error => status(`Lỗi: ${error.message}`, false, true));
     });
 
     $('save').onclick = async () => {

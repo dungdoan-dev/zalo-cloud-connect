@@ -20,21 +20,21 @@ async function loadConnectionInfo() {
   try {
     const response = await fetch(`/api/config?extension=${encodeURIComponent(extension.value.trim())}`);
     const runtime = await response.json();
-    if (!response.ok || !runtime.pbx?.wssUrl || !runtime.pbx?.sipDomain) throw new Error(runtime.error || 'Khong the tai cau hinh tong dai.');
+    if (!response.ok || !runtime.pbx?.wssUrl || !runtime.pbx?.sipDomain) throw new Error(runtime.error || 'Không thể tải cấu hình tổng đài.');
     wssUrl.value = runtime.pbx.wssUrl;
     sipDomain.value = runtime.pbx.sipDomain;
     if (runtime.extensionProfile?.employee) {
       assignedEmployee.value = `${runtime.extensionProfile.employee.name} (${runtime.extensionProfile.employee.id})`;
       assignedOa.value = runtime.accounts.find((item) => item.id === runtime.extensionProfile.accountId)?.name || runtime.extensionProfile.accountId;
-      connectionNote.textContent = `SIP address: sip:${extension.value.trim()}@${runtime.pbx.sipDomain}. Extension is assigned to ${runtime.extensionProfile.employee.name}.`;
+      connectionNote.textContent = `SIP address: sip:${extension.value.trim()}@${runtime.pbx.sipDomain}. Extension được gán cho ${runtime.extensionProfile.employee.name}.`;
     } else if (extension.value.trim()) {
       assignedEmployee.value = '';
       assignedOa.value = '';
-      connectionNote.textContent = 'Extension chua duoc gan nhan vien va Zalo OA trong Settings.';
+      connectionNote.textContent = 'Extension chưa được gán nhân viên và Zalo OA trong Cấu hình.';
     } else {
       assignedEmployee.value = '';
       assignedOa.value = '';
-      connectionNote.textContent = `SIP address: sip:extension@${runtime.pbx.sipDomain}. WSS is managed by the server.`;
+      connectionNote.textContent = `SIP address: sip:extension@${runtime.pbx.sipDomain}. WSS được quản lý tự động bởi máy chủ.`;
     }
     return runtime;
   } catch (error) {
@@ -54,7 +54,7 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const runtime = await loadConnectionInfo();
   if (!runtime?.extensionProfile?.employee) {
-    message.textContent = 'Extension chua duoc gan nhan vien. Hay gan trong /settings truoc khi ket noi.';
+    message.textContent = 'Extension chưa được gán nhân viên. Hãy gán trong /settings trước khi kết nối.';
     return;
   }
   saveSettings({ extension: extension.value.trim(), password: password.value, rememberPassword: remember.checked });

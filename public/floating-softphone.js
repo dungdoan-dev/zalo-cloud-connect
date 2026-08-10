@@ -929,7 +929,7 @@ function sipUri(user, domain) {
 function runtimeFor(extension = readSettings().extension) {
   return fetch(`/api/config?extension=${encodeURIComponent(extension)}`).then(async (response) => {
     const runtime = await response.json();
-    if (!response.ok) throw new Error(runtime.error || 'Khong the tai cau hinh tong dai.');
+    if (!response.ok) throw new Error(runtime.error || 'Không thể tải cấu hình tổng đài.');
     return runtime;
   });
 }
