@@ -96,3 +96,9 @@ Test dùng mock `fetch`, không gửi request thật và không cần token.
 - [Tổng quan gọi thoại ZCC](https://docs.zaloplatforms.com/docs/OA/goi-thoai/tong-quan)
 - [Gửi yêu cầu cấp quyền gọi](https://docs.zaloplatforms.com/docs/OA/goi-thoai/cap-quyen-goi/gui-yeu-cau-cap-quyen-goi)
 - [Kiểm tra quyền gọi](https://docs.zaloplatforms.com/docs/OA/goi-thoai/cap-quyen-goi/kiem-tra-nguoi-dung-da-cap-quyen-goi)
+
+## Triển khai production
+
+Xem hướng dẫn đầy đủ từ tạo EC2, cài FreeSWITCH/Node.js, cấu hình ZCC, HTTPS,
+webhook, systemd, theo dõi log đến GitHub Actions CI/CD tại
+[docs/SETUP-AND-DEPLOY.md](docs/SETUP-AND-DEPLOY.md).

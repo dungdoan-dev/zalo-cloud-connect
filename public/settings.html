@@ -1040,31 +1040,6 @@
       renderInboundOptions();
     }
 
-    function renderInboundOptions() {
-      const extensions = [...document.querySelectorAll('.extension')].map(fields);
-      const employees = [...document.querySelectorAll('.employee')].map(fields);
-      document.querySelectorAll('.oa').forEach(card => {
-        const accountId = card.querySelector('[data-field="id"]').value.trim();
-        const type = card.querySelector('[data-field="inboundTargetType"]').value;
-        const select = card.querySelector('[data-field="inboundTargetId"]');
-        const selected = select.value || select.dataset.value || '';
-        const choices = type === 'employee'
-          ? employees.filter(employee => extensions.some(extension => extension.employeeId === employee.id && extension.accountId === accountId))
-          : extensions.filter(extension => extension.accountId === accountId);
-        select.innerHTML = `<option value="">Chưa định tuyến</option>${choices.map(item => `<option value="${item.id}">${type === 'employee' ? item.name : item.id} — ${type === 'employee' ? item.department || 'Nhân viên' : item.name || 'Máy nhánh'}</option>`).join('')}`;
-        select.value = selected;
-        delete select.dataset.value;
-      });
-    }
-
-    function readState() {
-      return {
-        accounts: [...document.querySelectorAll('.oa')].map(fields),
-        employees: [...document.querySelectorAll('.employee')].map(employee => ({ ...fields(employee), active: employee.querySelector('[data-field="active"]').value === 'true' })),
-        extensions: [...document.querySelectorAll('.extension')].map(fields)
-      };
-    }
-
     // Routing is deliberately rendered outside the OA editor. This keeps the
     // setup order explicit: OA -> employee -> extension -> inbound routing.
     function collectRoutes() {
@@ -1221,14 +1196,12 @@
     });
 
     $('load').onclick = () => load().catch(error => status(`❌ Lỗi: ${error.message}`, false, true));
-    $('add-oa').onclick = () => appendAccount({ id: `oa-${Date.now()}`, name: 'OA mới' });
+    $('add-oa').onclick = () => {
+      appendAccount({ id: `oa-${Date.now()}`, name: 'OA mới' });
+      renderExtensionOptions();
+    };
     $('add-extension').onclick = () => appendExtension({ id: '', name: '', accountId: document.querySelector('.oa [data-field="id"]')?.value || '', password: '' });
 
-    document.addEventListener('change', (event) => {
-      if (event.target.matches('.extension [data-field="id"],.extension [data-field="name"],.extension [data-field="accountId"],.oa [data-field="id"]')) renderInboundOptions();
-    });
-
-    $('add-employee').onclick = () => { appendEmployee({ id: `employee-${Date.now()}`, name: 'Nhân viên mới', active: true }); renderExtensionOptions(); };
     document.addEventListener('change', (event) => {
       if (event.target.matches('.extension [data-field="id"],.extension [data-field="name"],.extension [data-field="accountId"],.extension [data-field="employeeId"],.employee [data-field],.oa [data-field="id"],.oa [data-field="inboundTargetType"]')) renderExtensionOptions();
     });
@@ -1248,7 +1221,6 @@
       try { await continueWizard(); }
       catch (error) { status(`Lỗi: ${error.message}`, false, true); }
     };
-    $('add-oa').addEventListener('click', () => setTimeout(renderExtensionOptions));
     document.addEventListener('change', (event) => {
       if (event.target.matches('.route [data-field="inboundTargetType"]')) renderInboundOptions();
     });
@@ -1344,17 +1316,7 @@
     $('save').onclick = async () => {
       try {
         status('⏳ Đang gửi yêu cầu cập nhật và đồng bộ FreeSWITCH XML...');
-        const response = await fetch('/api/settings', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-config-password': $('admin').value
-          },
-          body: JSON.stringify(readState())
-        });
-        const data = await response.json();
-        if (!response.ok) throw Error(data.error || 'Lưu thất bại');
-        state = data;
+        await applyFullConfiguration();
         status('🎉 Đã lưu thành công cấu hình và yêu cầu FreeSWITCH reload XML!', true);
         await load();
       } catch (error) {
