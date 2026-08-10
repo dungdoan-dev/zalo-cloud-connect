@@ -1,13 +1,15 @@
 import http from 'node:http';
+import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import WebSocket, { WebSocketServer } from 'ws';
 import { timingSafeEqual } from 'node:crypto';
 import { encodePcmToUlaw } from './codec.js';
 import { SipCaller } from './sip-caller.js';
 import { buildSipTarget, ZccClient } from './zcc-client.js';
-import { getZaloAccount, getZaloConfig, publicTelephonyConfig, saveTelephonyConfig, saveTelephonyDraft, syncFreeSwitchRuntime, upsertEmployee } from './runtime-config.js';
+import { getZaloAccount, getZaloConfig, getTelephonyConfig, publicTelephonyConfig, saveTelephonyConfig, saveTelephonyDraft, syncFreeSwitchRuntime, upsertEmployee } from './runtime-config.js';
 import { storeWebhook } from './webhook-store.js';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +36,7 @@ const config = Object.freeze({
 });
 const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
 const webhookSecret = process.env.WEBHOOK_SECRET || '';
+const execFileAsync = promisify(execFile);
 
 function rewriteSipTransport(data, from, to) {
   if (Buffer.isBuffer(data)) return data;
@@ -263,7 +266,9 @@ async function handleRequest(req, res) {
     const zalo = getZaloConfig();
     const telephony = publicTelephonyConfig();
     const extension = url.searchParams.get('extension') || '';
-    const assignedAccountId = telephony.extensions.find((item) => item.id === extension)?.accountId || '';
+    const extensionProfile = telephony.extensions.find((item) => item.id === extension) || null;
+    const employee = extensionProfile ? telephony.employees.find((item) => item.id === extensionProfile.employeeId) || null : null;
+    const assignedAccountId = extensionProfile?.accountId || '';
     const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
     const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host;
     const browserIsHttps = forwardedProto === 'https' || (forwardedProto === '' && req.socket.encrypted);
@@ -276,6 +281,12 @@ async function handleRequest(req, res) {
       oaId: zalo.oaId,
       accounts: telephony.accounts,
       assignedAccountId,
+      extensionProfile: extensionProfile && employee ? {
+        id: extensionProfile.id,
+        name: extensionProfile.name,
+        accountId: extensionProfile.accountId,
+        employee: { id: employee.id, name: employee.name, department: employee.department },
+      } : null,
       pbx: { wssUrl: browserWssUrl, sipDomain: config.pbxSipDomain },
       webrtc: config.turnUrl && config.turnUsername
         ? { turn: { urls: config.turnUrl, username: config.turnUsername, credential: config.turnPassword } }
@@ -315,6 +326,36 @@ async function handleRequest(req, res) {
     }
     const body = await readJson(req);
     sendJson(res, { ok: true, ...saveTelephonyDraft(body) });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/settings/test-inbound') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoáº·c thiáº¿u máº­t kháº©u quáº£n trá»‹.' }, 401);
+      return;
+    }
+    const { accountId } = await readJson(req);
+    const telephony = getTelephonyConfig();
+    const account = telephony.accounts.find((item) => item.id === String(accountId || ''));
+    if (!account || !account.inboundId || !account.inboundTargetId) {
+      sendJson(res, { error: 'OA chÆ°a cÃ³ luá»“ng Direct Extension há»£p lá»‡.' }, 400);
+      return;
+    }
+    const fsCli = process.env.FREESWITCH_CLI || '/usr/local/freeswitch/bin/fs_cli';
+    const targets = account.inboundTargetType === 'employee'
+      ? telephony.extensions.filter((item) => item.accountId === account.id && item.employeeId === account.inboundTargetId)
+      : telephony.extensions.filter((item) => item.accountId === account.id && item.id === account.inboundTargetId);
+    if (!targets.length) {
+      sendJson(res, { error: 'ÄÃ­ch nháº­n cuá»™c gá»i chÆ°a cÃ³ mÃ¡y nhÃ¡nh thuá»™c OA nÃ y.' }, 400);
+      return;
+    }
+    const command = `originate {origination_caller_id_name=Settings-Test,origination_caller_id_number=TEST,ignore_early_media=true}loopback/${account.inboundId}/default &park()`;
+    try {
+      const { stdout, stderr } = await execFileAsync(fsCli, ['-x', command], { timeout: 10_000 });
+      sendJson(res, { ok: true, targets: targets.map((item) => item.id), output: String(stdout || stderr || '').trim() });
+    } catch (error) {
+      sendJson(res, { error: `KhÃ´ng thá»ƒ táº¡o cuá»™c gá»i test FreeSWITCH: ${error.message}` }, 503);
+    }
     return;
   }
 

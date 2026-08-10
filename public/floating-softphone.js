@@ -927,7 +927,11 @@ function sipUri(user, domain) {
 }
 
 function runtimeFor(extension = readSettings().extension) {
-  return fetch(`/api/config?extension=${encodeURIComponent(extension)}`).then((response) => response.json());
+  return fetch(`/api/config?extension=${encodeURIComponent(extension)}`).then(async (response) => {
+    const runtime = await response.json();
+    if (!response.ok) throw new Error(runtime.error || 'Khong the tai cau hinh tong dai.');
+    return runtime;
+  });
 }
 
 function zccPhoneTarget(value) {
@@ -962,6 +966,10 @@ async function connect() {
     status('Vào ⚙ để thiết lập extension', true);
     return;
   }
+  if (!runtime.extensionProfile?.employee) {
+    status('Extension chưa được gán nhân viên trong Settings', true);
+    return;
+  }
   if (phone?.isConnected()) return;
   const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
   if (runtime.webrtc?.turn?.urls) iceServers.push(runtime.webrtc.turn);
@@ -984,7 +992,7 @@ async function connect() {
     delegate: {
       onServerConnect: () => status('Đang đăng ký…'),
       onRegistered: () => {
-        status(`Sẵn sàng · ${saved.extension}`);
+        status(`Sẵn sàng · ${runtime.extensionProfile.employee.name} · ${saved.extension}`);
         setCardState('idle');
       },
       onServerDisconnect: () => status('Mất kết nối tổng đài', true),
@@ -1143,4 +1151,3 @@ window.addEventListener('simlydent-softphone-settings', () => {
 });
 
 void connect();
-

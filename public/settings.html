@@ -638,6 +638,9 @@
     .wizard-panel[hidden] { display: none; }
     .wizard-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; }
     .route-summary { color: var(--text-muted); font-size: 13px; line-height: 1.65; }
+    .route-preview { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-1); color: var(--text-secondary); font-size: 13px; }
+    .route-preview strong { color: #fff; }
+    .route-test-row { display: flex; justify-content: flex-end; margin-top: 12px; }
     .review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
     .review-stat { padding: 16px; background: var(--surface-2); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
     .review-stat strong { display: block; margin-top: 4px; font-size: 24px; color: #fff; }
@@ -905,6 +908,8 @@
         <div><label>Loai dich nhan cuoc goi</label><select data-field="inboundTargetType"><option value="extension">May nhanh</option><option value="employee">Nhan vien</option></select></div>
         <div><label>Dich nhan cuoc goi</label><select data-field="inboundTargetId"></select></div>
       </div>
+      <div class="route-preview" data-route-preview>Chon dich de xem truoc luong do chuong.</div>
+      <div class="route-test-row"><button class="btn btn-secondary test-inbound-route" type="button">Test do chuong</button></div>
     </article>
   </template>
 
@@ -1098,6 +1103,14 @@
           return `<option value="${item.id}">${type === 'employee' ? item.name || item.id : item.id} — ${detail}</option>`;
         }).join('')}`;
         target.value = route.inboundTargetId || '';
+        const selected = choices.find(item => item.id === target.value);
+        const resolved = type === 'employee'
+          ? extensions.filter(item => item.accountId === accountId && item.employeeId === target.value)
+          : extensions.filter(item => item.accountId === accountId && item.id === target.value);
+        const preview = card.querySelector('[data-route-preview]');
+        preview.textContent = !selected
+          ? 'Chua co dich nhan cuoc goi. Chon nhan vien hoac may nhanh de test.'
+          : `Luong: ${account.name || accountId} -> ${type === 'employee' ? selected.name || selected.id : `May nhanh ${selected.id}`} -> ${resolved.length ? resolved.map(item => `may ${item.id}`).join(', ') : 'chua co may nhanh hop le'}`;
         container.append(card);
       });
     }
@@ -1144,6 +1157,18 @@
       validateStep(wizardStep);
       await persistCurrentStep(wizardStep);
       setWizardStep(wizardStep + 1);
+    }
+
+    async function applyFullConfiguration() {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
+        body: JSON.stringify(readState())
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || 'Khong the ap dung cau hinh.');
+      state = data;
+      return data;
     }
 
     function renderReview() {
@@ -1226,6 +1251,30 @@
     $('add-oa').addEventListener('click', () => setTimeout(renderExtensionOptions));
     document.addEventListener('change', (event) => {
       if (event.target.matches('.route [data-field="inboundTargetType"]')) renderInboundOptions();
+    });
+
+    document.addEventListener('click', async (event) => {
+      const button = event.target.closest('.test-inbound-route');
+      if (!button) return;
+      const route = button.closest('.route');
+      try {
+        validateStep(4);
+        button.disabled = true;
+        status('Dang ap dung cau hinh va tao cuoc goi test...');
+        await applyFullConfiguration();
+        const response = await fetch('/api/settings/test-inbound', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
+          body: JSON.stringify({ accountId: route.querySelector('[data-field="accountId"]').value })
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || 'Khong the tao cuoc goi test.');
+        status(`Da gui test do chuong toi may nhanh: ${result.targets.join(', ')}.`, true);
+      } catch (error) {
+        status(`Loi test do chuong: ${error.message}`, false, true);
+      } finally {
+        button.disabled = false;
+      }
     });
 
     async function persistEmployee(card, { quiet = false } = {}) {
