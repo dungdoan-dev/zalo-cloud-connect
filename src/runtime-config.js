@@ -36,7 +36,7 @@ function normalizeConfig(input = {}) {
     return legacy.appId ? { accounts: [{ id: 'default', name: 'Zalo OA', ...legacy }], extensions: [] } : { accounts: [], extensions: [] };
   }
   return {
-    accounts: input.accounts.map((account) => ({ id: String(account.id || ''), name: String(account.name || ''), accessToken: String(account.accessToken || ''), appId: String(account.appId || ''), oaId: String(account.oaId || ''), inboundId: String(account.inboundId || '') })),
+    accounts: input.accounts.map((account) => ({ id: String(account.id || ''), name: String(account.name || ''), accessToken: String(account.accessToken || ''), appId: String(account.appId || ''), oaId: String(account.oaId || ''), inboundId: String(account.inboundId || ''), inboundStrategy: 'direct', inboundExtension: String(account.inboundExtension || '') })),
     extensions: Array.isArray(input.extensions) ? input.extensions.map((extension) => ({ id: String(extension.id || ''), name: String(extension.name || ''), password: String(extension.password || ''), accountId: String(extension.accountId || '') })) : [],
   };
 }
@@ -60,7 +60,7 @@ export function getZaloAccount(accountId) {
 
 export function publicTelephonyConfig() {
   return {
-    accounts: saved.accounts.map(({ id, name, appId, oaId, inboundId }) => ({ id, name, appId, oaId, inboundId })),
+    accounts: saved.accounts.map(({ id, name, appId, oaId, inboundId, inboundStrategy, inboundExtension }) => ({ id, name, appId, oaId, inboundId, inboundStrategy, inboundExtension })),
     extensions: saved.extensions.map(({ id, name, accountId }) => ({ id, name, accountId })),
   };
 }
@@ -113,6 +113,12 @@ function validateConfig(config, previousAccounts) {
     if (!extension.password || extension.password.length < 8) throw new Error(`Mật khẩu extension ${extension.id} cần ít nhất 8 ký tự.`);
     extensionIds.add(extension.id);
   }
+  for (const account of config.accounts) {
+    if (account.inboundExtension) {
+      const target = config.extensions.find((extension) => extension.id === account.inboundExtension);
+      if (!target || target.accountId !== account.id) throw new Error(`Máy nhận cuộc gọi vào của OA ${account.name} phải thuộc chính OA này.`);
+    }
+  }
 }
 
 function writeFreeSwitchRuntime(config) {
@@ -141,9 +147,9 @@ function dialplanXml(config) {
     return `  <extension name="simlydent-outbound-${xml(account.id)}">\n    <condition field="\${sip_h_X-ZCC-Account-ID}" expression="^${regex(account.id)}$">\n      <condition field="\${sip_from_user}" expression="^(${agentPattern})$">\n        <condition field="destination_number" expression="^(\\+?\\d{8,20})$">\n          <action application="set" data="hangup_after_bridge=true"/>\n          <action application="set" data="absolute_codec_string=PCMU"/>\n          <action application="set" data="record_stereo=true"/>\n          <action application="record_session" data="$\${recordings_dir}/zcc/\${uuid}.wav"/>\n          <action application="set" data="effective_caller_id_number=${xml(account.oaId)}"/>\n          <action application="set" data="effective_caller_id_name=${xml(account.name)}"/>\n          <action application="bridge" data="${originate}"/>\n        </condition>\n      </condition>\n    </condition>\n  </extension>`;
   }).filter(Boolean).join('\n');
   const inbound = config.accounts.map((account) => {
-    const agents = config.extensions.filter((extension) => extension.accountId === account.id).map((extension) => `user/${extension.id}`);
-    if (!agents.length) return '';
-    return `  <extension name="simlydent-inbound-${xml(account.id)}">\n    <condition field="destination_number" expression="^${regex(account.inboundId)}$">\n      <action application="set" data="absolute_codec_string=PCMU"/>\n      <action application="set" data="hangup_after_bridge=true"/>\n      <action application="bridge" data="${agents.join(',')}"/>\n    </condition>\n  </extension>`;
+    const target = config.extensions.find((extension) => extension.id === account.inboundExtension && extension.accountId === account.id);
+    if (!target) return '';
+    return `  <extension name="simlydent-inbound-${xml(account.id)}">\n    <condition field="destination_number" expression="^${regex(account.inboundId)}$">\n      <action application="set" data="absolute_codec_string=PCMU"/>\n      <action application="set" data="hangup_after_bridge=true"/>\n      <action application="bridge" data="user/${xml(target.id)}"/>\n    </condition>\n  </extension>`;
   }).filter(Boolean).join('\n');
   return `<include>\n${outbound}\n${inbound}\n</include>\n`;
 }

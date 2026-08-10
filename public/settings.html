@@ -785,6 +785,14 @@
             </button>
           </div>
         </div>
+        <div>
+          <label>Kịch bản gọi vào</label>
+          <select data-field="inboundStrategy"><option value="direct">Direct to Extension</option></select>
+        </div>
+        <div>
+          <label>Máy nhánh nhận cuộc gọi</label>
+          <select data-field="inboundExtension"></select>
+        </div>
       </div>
     </article>
   </template>
@@ -856,8 +864,9 @@
       const el = clone('oa-template');
       Object.entries(account).forEach(([key, value]) => {
         const input = el.querySelector(`[data-field="${key}"]`);
-        if (input) input.value = value || '';
+        if (input && key !== 'inboundExtension') input.value = value || '';
       });
+      el.querySelector('[data-field="inboundExtension"]').dataset.value = account.inboundExtension || '';
       el.querySelector('.remove-oa').onclick = () => {
         el.remove();
         renderExtensionOptions();
@@ -875,7 +884,7 @@
       renderExtensionOptions();
       const select = el.querySelector('[data-field="accountId"]');
       select.value = extension.accountId || select.value;
-      el.querySelector('.remove-extension').onclick = () => el.remove();
+      el.querySelector('.remove-extension').onclick = () => { el.remove(); renderInboundOptions(); };
     }
 
     function renderExtensionOptions() {
@@ -884,6 +893,20 @@
         const selected = select.value;
         select.innerHTML = accounts.map(a => `<option value="${a.id}">${a.name || a.id || 'OA chưa đặt tên'}</option>`).join('');
         select.value = selected || accounts[0]?.id || '';
+      });
+      renderInboundOptions();
+    }
+
+    function renderInboundOptions() {
+      const extensions = [...document.querySelectorAll('.extension')].map(fields);
+      document.querySelectorAll('.oa').forEach(card => {
+        const accountId = card.querySelector('[data-field="id"]').value.trim();
+        const select = card.querySelector('[data-field="inboundExtension"]');
+        const selected = select.value || select.dataset.value || '';
+        const choices = extensions.filter(extension => extension.accountId === accountId);
+        select.innerHTML = `<option value="">Chưa định tuyến</option>${choices.map(extension => `<option value="${extension.id}">${extension.id} — ${extension.name || 'Máy nhánh'}</option>`).join('')}`;
+        select.value = selected;
+        delete select.dataset.value;
       });
     }
 
@@ -919,6 +942,10 @@
     $('load').onclick = () => load().catch(error => status(`❌ Lỗi: ${error.message}`, false, true));
     $('add-oa').onclick = () => appendAccount({ id: `oa-${Date.now()}`, name: 'OA mới' });
     $('add-extension').onclick = () => appendExtension({ id: '', name: '', accountId: document.querySelector('.oa [data-field="id"]')?.value || '', password: '' });
+
+    document.addEventListener('change', (event) => {
+      if (event.target.matches('.extension [data-field="id"],.extension [data-field="name"],.extension [data-field="accountId"],.oa [data-field="id"]')) renderInboundOptions();
+    });
 
     $('save').onclick = async () => {
       try {
