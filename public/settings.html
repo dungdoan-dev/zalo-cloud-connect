@@ -1088,9 +1088,15 @@
         card.querySelector('[data-field="inboundTargetType"]').value = type;
         const target = card.querySelector('[data-field="inboundTargetId"]');
         const choices = type === 'employee'
-          ? employees.filter(employee => extensions.some(extension => extension.accountId === accountId && extension.employeeId === employee.id))
+          ? employees.filter(employee => employee.active !== 'false')
           : extensions.filter(extension => extension.accountId === accountId);
-        target.innerHTML = `<option value="">Chua dinh tuyen</option>${choices.map(item => `<option value="${item.id}">${type === 'employee' ? item.name || item.id : item.id} — ${type === 'employee' ? item.department || 'Nhan vien' : item.name || 'May nhanh'}</option>`).join('')}`;
+        target.innerHTML = `<option value="">Chua dinh tuyen</option>${choices.map(item => {
+          const hasExtension = type !== 'employee' || extensions.some(extension => extension.accountId === accountId && extension.employeeId === item.id);
+          const detail = type === 'employee'
+            ? `${item.department || 'Nhan vien'}${hasExtension ? '' : ' — chua co may nhanh thuoc OA nay'}`
+            : item.name || 'May nhanh';
+          return `<option value="${item.id}">${type === 'employee' ? item.name || item.id : item.id} — ${detail}</option>`;
+        }).join('')}`;
         target.value = route.inboundTargetId || '';
         container.append(card);
       });
@@ -1242,6 +1248,19 @@
       if (!quiet) status(`Da luu nhan vien ${employee.name}.`, true);
     }
 
+    async function persistExtensionsDraft() {
+      const { extensions } = readState();
+      const response = await fetch('/api/settings/draft', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
+        body: JSON.stringify({ extensions })
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || 'Khong the luu may nhanh.');
+      state = data;
+      status('Da luu gan nhan vien cho may nhanh.', true);
+    }
+
     // Create the employee on the server before adding it to the form. This
     // prevents an extension/employee reference from blocking the final save.
     $('add-employee').onclick = async () => {
@@ -1266,6 +1285,11 @@
     document.addEventListener('change', (event) => {
       if (!event.target.matches('.employee [data-field]')) return;
       persistEmployee(event.target.closest('.employee')).catch(error => status(`Loi: ${error.message}`, false, true));
+    });
+
+    document.addEventListener('change', (event) => {
+      if (!event.target.matches('.extension [data-field="employeeId"], .extension [data-field="accountId"]')) return;
+      persistExtensionsDraft().catch(error => status(`Loi: ${error.message}`, false, true));
     });
 
     $('save').onclick = async () => {
