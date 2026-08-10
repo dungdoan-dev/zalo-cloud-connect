@@ -27,17 +27,26 @@ function loadConfig() {
   if (legacyDefaults.appId && legacyDefaults.oaId && legacyDefaults.inboundId) {
     return normalizeConfig({ accounts: [{ id: 'default', name: 'Zalo OA', ...legacyDefaults }], extensions: [] });
   }
-  return { accounts: [], extensions: [] };
+  return { accounts: [], employees: [], extensions: [] };
 }
 
 function normalizeConfig(input = {}) {
   if (!Array.isArray(input.accounts)) {
     const legacy = { accessToken: input.accessToken || legacyDefaults.accessToken, appId: input.appId || legacyDefaults.appId, oaId: input.oaId || legacyDefaults.oaId, inboundId: input.inboundId || legacyDefaults.inboundId };
-    return legacy.appId ? { accounts: [{ id: 'default', name: 'Zalo OA', ...legacy }], extensions: [] } : { accounts: [], extensions: [] };
+    return legacy.appId ? { accounts: [{ id: 'default', name: 'Zalo OA', ...legacy }], employees: [], extensions: [] } : { accounts: [], employees: [], extensions: [] };
+  }
+  const extensions = Array.isArray(input.extensions) ? input.extensions.map((extension) => ({ id: String(extension.id || ''), name: String(extension.name || ''), password: String(extension.password || ''), accountId: String(extension.accountId || ''), employeeId: String(extension.employeeId || '') })) : [];
+  const employees = Array.isArray(input.employees) ? input.employees.map((employee) => ({ id: String(employee.id || ''), name: String(employee.name || ''), department: String(employee.department || ''), active: employee.active !== false && employee.active !== 'false' })) : [];
+  for (const extension of extensions) {
+    if (!extension.employeeId) {
+      extension.employeeId = `employee-${extension.id}`;
+      if (!employees.some((employee) => employee.id === extension.employeeId)) employees.push({ id: extension.employeeId, name: extension.name || `Nhân viên ${extension.id}`, department: '', active: true });
+    }
   }
   return {
-    accounts: input.accounts.map((account) => ({ id: String(account.id || ''), name: String(account.name || ''), accessToken: String(account.accessToken || ''), appId: String(account.appId || ''), oaId: String(account.oaId || ''), inboundId: String(account.inboundId || ''), inboundStrategy: 'direct', inboundExtension: String(account.inboundExtension || '') })),
-    extensions: Array.isArray(input.extensions) ? input.extensions.map((extension) => ({ id: String(extension.id || ''), name: String(extension.name || ''), password: String(extension.password || ''), accountId: String(extension.accountId || '') })) : [],
+    accounts: input.accounts.map((account) => ({ id: String(account.id || ''), name: String(account.name || ''), accessToken: String(account.accessToken || ''), appId: String(account.appId || ''), oaId: String(account.oaId || ''), inboundId: String(account.inboundId || ''), inboundStrategy: 'direct', inboundTargetType: String(account.inboundTargetType || (account.inboundExtension ? 'extension' : '')), inboundTargetId: String(account.inboundTargetId || account.inboundExtension || '') })),
+    employees,
+    extensions,
   };
 }
 
@@ -49,7 +58,7 @@ export function getTelephonyConfig() {
 // account ID from the SIP header and do not expose an OA token to browsers.
 export function getZaloConfig() {
   const primary = saved.accounts[0] || {};
-  return { ...primary, accounts: saved.accounts, extensions: saved.extensions };
+  return { ...primary, accounts: saved.accounts, employees: saved.employees, extensions: saved.extensions };
 }
 
 export function getZaloAccount(accountId) {
@@ -60,8 +69,9 @@ export function getZaloAccount(accountId) {
 
 export function publicTelephonyConfig() {
   return {
-    accounts: saved.accounts.map(({ id, name, appId, oaId, inboundId, inboundStrategy, inboundExtension }) => ({ id, name, appId, oaId, inboundId, inboundStrategy, inboundExtension })),
-    extensions: saved.extensions.map(({ id, name, accountId }) => ({ id, name, accountId })),
+    accounts: saved.accounts.map(({ id, name, accessToken, appId, oaId, inboundId, inboundStrategy, inboundTargetType, inboundTargetId }) => ({ id, name, appId, oaId, inboundId, inboundStrategy, inboundTargetType, inboundTargetId, hasAccessToken: Boolean(accessToken) })),
+    employees: saved.employees.map(({ id, name, department, active }) => ({ id, name, department, active })),
+    extensions: saved.extensions.map(({ id, name, accountId, employeeId }) => ({ id, name, accountId, employeeId })),
   };
 }
 
@@ -93,6 +103,7 @@ export function saveZaloConfig({ accessToken, appId, oaId, inboundId }) {
   const current = saved.accounts[0];
   const result = saveTelephonyConfig({
     accounts: [{ id: current?.id || 'default', name: current?.name || 'Zalo OA', accessToken: accessToken || current?.accessToken || '', appId, oaId, inboundId }],
+    employees: saved.employees,
     extensions: saved.extensions.filter((extension) => extension.accountId === (current?.id || 'default')),
   });
   return result.accounts[0];
@@ -107,16 +118,28 @@ function validateConfig(config, previousAccounts) {
     accountIds.add(account.id);
   }
   const extensionIds = new Set();
+  const employeeIds = new Set();
+  for (const employee of config.employees) {
+    if (!/^[a-zA-Z0-9_-]{1,48}$/.test(employee.id) || employeeIds.has(employee.id) || !employee.name.trim()) throw new Error('Nhân viên phải có mã duy nhất và tên hiển thị.');
+    employeeIds.add(employee.id);
+  }
   for (const extension of config.extensions) {
     if (!/^\d{2,8}$/.test(extension.id) || extensionIds.has(extension.id)) throw new Error('Extension phải duy nhất, gồm 2–8 chữ số.');
-    if (!extension.name.trim() || !accountIds.has(extension.accountId)) throw new Error('Máy nhánh phải có tên và thuộc một Zalo OA.');
+    if (!extension.name.trim() || !accountIds.has(extension.accountId) || !employeeIds.has(extension.employeeId)) throw new Error('Máy nhánh phải có tên, thuộc một Zalo OA và được gán cho nhân viên.');
     if (!extension.password || extension.password.length < 8) throw new Error(`Mật khẩu extension ${extension.id} cần ít nhất 8 ký tự.`);
     extensionIds.add(extension.id);
   }
   for (const account of config.accounts) {
-    if (account.inboundExtension) {
-      const target = config.extensions.find((extension) => extension.id === account.inboundExtension);
-      if (!target || target.accountId !== account.id) throw new Error(`Máy nhận cuộc gọi vào của OA ${account.name} phải thuộc chính OA này.`);
+    if (account.inboundTargetId) {
+      if (account.inboundTargetType === 'extension') {
+        const target = config.extensions.find((extension) => extension.id === account.inboundTargetId && extension.accountId === account.id);
+        if (!target) throw new Error(`Máy nhận cuộc gọi vào của OA ${account.name} phải thuộc chính OA này.`);
+      } else if (account.inboundTargetType === 'employee') {
+        const extensions = config.extensions.filter((extension) => extension.employeeId === account.inboundTargetId && extension.accountId === account.id);
+        if (!extensions.length) throw new Error(`Nhân viên nhận cuộc gọi của OA ${account.name} chưa có máy nhánh thuộc OA này.`);
+      } else {
+        throw new Error(`Loại đích gọi vào của OA ${account.name} không hợp lệ.`);
+      }
     }
   }
 }
@@ -137,7 +160,6 @@ function directoryXml(extensions) {
 }
 
 function dialplanXml(config) {
-  const accounts = new Map(config.accounts.map((account) => [account.id, account]));
   const outbound = config.accounts.map((account) => {
     const agents = config.extensions.filter((extension) => extension.accountId === account.id).map((extension) => extension.id);
     if (!agents.length) return '';
@@ -147,9 +169,11 @@ function dialplanXml(config) {
     return `  <extension name="simlydent-outbound-${xml(account.id)}">\n    <condition field="\${sip_h_X-ZCC-Account-ID}" expression="^${regex(account.id)}$">\n      <condition field="\${sip_from_user}" expression="^(${agentPattern})$">\n        <condition field="destination_number" expression="^(\\+?\\d{8,20})$">\n          <action application="set" data="hangup_after_bridge=true"/>\n          <action application="set" data="absolute_codec_string=PCMU"/>\n          <action application="set" data="record_stereo=true"/>\n          <action application="record_session" data="$\${recordings_dir}/zcc/\${uuid}.wav"/>\n          <action application="set" data="effective_caller_id_number=${xml(account.oaId)}"/>\n          <action application="set" data="effective_caller_id_name=${xml(account.name)}"/>\n          <action application="bridge" data="${originate}"/>\n        </condition>\n      </condition>\n    </condition>\n  </extension>`;
   }).filter(Boolean).join('\n');
   const inbound = config.accounts.map((account) => {
-    const target = config.extensions.find((extension) => extension.id === account.inboundExtension && extension.accountId === account.id);
-    if (!target) return '';
-    return `  <extension name="simlydent-inbound-${xml(account.id)}">\n    <condition field="destination_number" expression="^${regex(account.inboundId)}$">\n      <action application="set" data="absolute_codec_string=PCMU"/>\n      <action application="set" data="hangup_after_bridge=true"/>\n      <action application="bridge" data="user/${xml(target.id)}"/>\n    </condition>\n  </extension>`;
+    const targets = account.inboundTargetType === 'employee'
+      ? config.extensions.filter((extension) => extension.employeeId === account.inboundTargetId && extension.accountId === account.id)
+      : config.extensions.filter((extension) => extension.id === account.inboundTargetId && extension.accountId === account.id);
+    if (!targets.length) return '';
+    return `  <extension name="simlydent-inbound-${xml(account.id)}">\n    <condition field="destination_number" expression="^${regex(account.inboundId)}$">\n      <action application="set" data="absolute_codec_string=PCMU"/>\n      <action application="set" data="hangup_after_bridge=true"/>\n      <action application="bridge" data="${targets.map((target) => `user/${xml(target.id)}`).join(',')}"/>\n    </condition>\n  </extension>`;
   }).filter(Boolean).join('\n');
   return `<include>\n${outbound}\n${inbound}\n</include>\n`;
 }

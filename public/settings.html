@@ -713,6 +713,15 @@
         <div id="accounts"></div>
       </section>
 
+      <!-- Employees Card -->
+      <section class="glass-card">
+        <div class="card-header">
+          <div class="card-title"><div class="card-title-icon">👤</div>Nhân Viên</div>
+          <button id="add-employee" class="btn btn-secondary" type="button">+ Thêm Nhân Viên</button>
+        </div>
+        <div id="employees"></div>
+      </section>
+
       <!-- Extensions Card -->
       <section class="glass-card">
         <div class="card-header">
@@ -790,9 +799,25 @@
           <select data-field="inboundStrategy"><option value="direct">Direct to Extension</option></select>
         </div>
         <div>
-          <label>Máy nhánh nhận cuộc gọi</label>
-          <select data-field="inboundExtension"></select>
+          <label>Đích nhận cuộc gọi</label>
+          <select data-field="inboundTargetType"><option value="extension">Máy nhánh</option><option value="employee">Nhân viên</option></select>
         </div>
+        <div>
+          <label>Nhân viên / máy nhánh nhận cuộc gọi</label>
+          <select data-field="inboundTargetId"></select>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <template id="employee-template">
+    <article class="employee card-item">
+      <div class="item-header"><span class="item-badge ext">Nhân viên</span><button class="btn btn-danger-soft remove-employee" type="button">Xóa nhân viên</button></div>
+      <div class="grid">
+        <div><label>Mã nhân viên</label><input data-field="id" class="code-font" placeholder="anh"></div>
+        <div><label>Tên nhân viên</label><input data-field="name" placeholder="Nguyễn Văn An"></div>
+        <div><label>Phòng ban</label><input data-field="department" placeholder="Lễ tân"></div>
+        <div><label>Trạng thái</label><select data-field="active"><option value="true">Đang hoạt động</option><option value="false">Tạm ngưng</option></select></div>
       </div>
     </article>
   </template>
@@ -820,6 +845,10 @@
           <select data-field="accountId"></select>
         </div>
         <div>
+          <label>Gán cho nhân viên</label>
+          <select data-field="employeeId"></select>
+        </div>
+        <div>
           <label>Mật Khẩu SIP Extension</label>
           <div class="input-pass-wrap">
             <input data-field="password" type="password" autocomplete="new-password" placeholder="Để trống để giữ mật khẩu cũ">
@@ -834,7 +863,7 @@
 
   <script>
     const $ = id => document.getElementById(id);
-    let state = { accounts: [], extensions: [] };
+    let state = { accounts: [], employees: [], extensions: [] };
 
     function togglePass(id) {
       const el = $(id);
@@ -864,9 +893,10 @@
       const el = clone('oa-template');
       Object.entries(account).forEach(([key, value]) => {
         const input = el.querySelector(`[data-field="${key}"]`);
-        if (input && key !== 'inboundExtension') input.value = value || '';
+        if (input && key !== 'inboundTargetId') input.value = value || '';
       });
-      el.querySelector('[data-field="inboundExtension"]').dataset.value = account.inboundExtension || '';
+      if (account.hasAccessToken) el.querySelector('[data-field="accessToken"]').placeholder = 'Đã lưu token — để trống để giữ nguyên';
+      el.querySelector('[data-field="inboundTargetId"]').dataset.value = account.inboundTargetId || '';
       el.querySelector('.remove-oa').onclick = () => {
         el.remove();
         renderExtensionOptions();
@@ -874,37 +904,60 @@
       $('accounts').append(el);
     }
 
+    function appendEmployee(employee = {}) {
+      const el = clone('employee-template');
+      Object.entries(employee).forEach(([key, value]) => {
+        const input = el.querySelector(`[data-field="${key}"]`);
+        if (input) input.value = String(value);
+      });
+      el.querySelector('.remove-employee').onclick = () => { el.remove(); renderExtensionOptions(); };
+      $('employees').append(el);
+    }
+
     function appendExtension(extension = {}) {
       const el = clone('extension-template');
       for (const [key, value] of Object.entries(extension)) {
         const input = el.querySelector(`[data-field="${key}"]`);
-        if (input && key !== 'accountId') input.value = value || '';
+        if (input && key !== 'accountId' && key !== 'employeeId') input.value = value || '';
       }
       $('extensions').append(el);
       renderExtensionOptions();
       const select = el.querySelector('[data-field="accountId"]');
       select.value = extension.accountId || select.value;
+      const employee = el.querySelector('[data-field="employeeId"]');
+      employee.value = extension.employeeId || employee.value;
+      renderInboundOptions();
       el.querySelector('.remove-extension').onclick = () => { el.remove(); renderInboundOptions(); };
     }
 
     function renderExtensionOptions() {
       const accounts = [...document.querySelectorAll('.oa')].map(fields);
+      const employees = [...document.querySelectorAll('.employee')].map(fields);
       document.querySelectorAll('.extension select[data-field="accountId"]').forEach(select => {
         const selected = select.value;
         select.innerHTML = accounts.map(a => `<option value="${a.id}">${a.name || a.id || 'OA chưa đặt tên'}</option>`).join('');
         select.value = selected || accounts[0]?.id || '';
+      });
+      document.querySelectorAll('.extension select[data-field="employeeId"]').forEach(select => {
+        const selected = select.value;
+        select.innerHTML = employees.map(employee => `<option value="${employee.id}">${employee.name || employee.id || 'Nhân viên chưa đặt tên'}</option>`).join('');
+        select.value = selected || employees[0]?.id || '';
       });
       renderInboundOptions();
     }
 
     function renderInboundOptions() {
       const extensions = [...document.querySelectorAll('.extension')].map(fields);
+      const employees = [...document.querySelectorAll('.employee')].map(fields);
       document.querySelectorAll('.oa').forEach(card => {
         const accountId = card.querySelector('[data-field="id"]').value.trim();
-        const select = card.querySelector('[data-field="inboundExtension"]');
+        const type = card.querySelector('[data-field="inboundTargetType"]').value;
+        const select = card.querySelector('[data-field="inboundTargetId"]');
         const selected = select.value || select.dataset.value || '';
-        const choices = extensions.filter(extension => extension.accountId === accountId);
-        select.innerHTML = `<option value="">Chưa định tuyến</option>${choices.map(extension => `<option value="${extension.id}">${extension.id} — ${extension.name || 'Máy nhánh'}</option>`).join('')}`;
+        const choices = type === 'employee'
+          ? employees.filter(employee => extensions.some(extension => extension.employeeId === employee.id && extension.accountId === accountId))
+          : extensions.filter(extension => extension.accountId === accountId);
+        select.innerHTML = `<option value="">Chưa định tuyến</option>${choices.map(item => `<option value="${item.id}">${type === 'employee' ? item.name : item.id} — ${type === 'employee' ? item.department || 'Nhân viên' : item.name || 'Máy nhánh'}</option>`).join('')}`;
         select.value = selected;
         delete select.dataset.value;
       });
@@ -913,6 +966,7 @@
     function readState() {
       return {
         accounts: [...document.querySelectorAll('.oa')].map(fields),
+        employees: [...document.querySelectorAll('.employee')].map(employee => ({ ...fields(employee), active: employee.querySelector('[data-field="active"]').value === 'true' })),
         extensions: [...document.querySelectorAll('.extension')].map(fields)
       };
     }
@@ -926,9 +980,12 @@
       if (!response.ok) throw Error(data.error || 'Không thể tải cấu hình');
       state = data;
       $('accounts').innerHTML = '';
+      $('employees').innerHTML = '';
       $('extensions').innerHTML = '';
       data.accounts.forEach(appendAccount);
+      data.employees.forEach(appendEmployee);
       data.extensions.forEach(appendExtension);
+      renderExtensionOptions();
       $('editor').hidden = false;
       status('✅ Đã tải thành công dữ liệu cấu hình Zalo OA & Máy nhánh.', true);
     }
@@ -945,6 +1002,11 @@
 
     document.addEventListener('change', (event) => {
       if (event.target.matches('.extension [data-field="id"],.extension [data-field="name"],.extension [data-field="accountId"],.oa [data-field="id"]')) renderInboundOptions();
+    });
+
+    $('add-employee').onclick = () => { appendEmployee({ id: `employee-${Date.now()}`, name: 'Nhân viên mới', active: true }); renderExtensionOptions(); };
+    document.addEventListener('change', (event) => {
+      if (event.target.matches('.extension [data-field="id"],.extension [data-field="name"],.extension [data-field="accountId"],.extension [data-field="employeeId"],.employee [data-field],.oa [data-field="id"],.oa [data-field="inboundTargetType"]')) renderExtensionOptions();
     });
 
     $('save').onclick = async () => {
