@@ -125,7 +125,9 @@ function validateConfig(config, previousAccounts) {
   }
   for (const extension of config.extensions) {
     if (!/^\d{2,8}$/.test(extension.id) || extensionIds.has(extension.id)) throw new Error('Extension phải duy nhất, gồm 2–8 chữ số.');
-    if (!extension.name.trim() || !accountIds.has(extension.accountId) || !employeeIds.has(extension.employeeId)) throw new Error('Máy nhánh phải có tên, thuộc một Zalo OA và được gán cho nhân viên.');
+    if (!extension.name.trim()) throw new Error(`Máy nhánh ${extension.id} chưa có tên hiển thị.`);
+    if (!accountIds.has(extension.accountId)) throw new Error(`Máy nhánh ${extension.id} chưa được gán Zalo OA hợp lệ.`);
+    if (!employeeIds.has(extension.employeeId)) throw new Error(`Máy nhánh ${extension.id} đang gán nhân viên "${extension.employeeId || 'trống'}" nhưng nhân viên này chưa tồn tại.`);
     if (!extension.password || extension.password.length < 8) throw new Error(`Mật khẩu extension ${extension.id} cần ít nhất 8 ký tự.`);
     extensionIds.add(extension.id);
   }
