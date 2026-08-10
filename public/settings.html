@@ -994,6 +994,7 @@
 
     function appendEmployee(employee = {}) {
       const el = clone('employee-template');
+      el.dataset.persistedEmployeeId = employee.id || '';
       Object.entries(employee).forEach(([key, value]) => {
         const input = el.querySelector(`[data-field="${key}"]`);
         if (input) input.value = String(value);
@@ -1116,6 +1117,29 @@
       if (step === 4 && data.accounts.some(item => !item.inboundTargetId)) throw Error('Hay chon dich nhan cuoc goi vao cho tung Zalo OA.');
     }
 
+    async function persistCurrentStep(step) {
+      const data = readState();
+      const payload = step === 1 ? { accounts: data.accounts }
+        : step === 2 ? { employees: data.employees }
+          : step === 3 ? { extensions: data.extensions }
+            : { accounts: data.accounts };
+      const response = await fetch('/api/settings/draft', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
+        body: JSON.stringify(payload)
+      });
+      const saved = await response.json();
+      if (!response.ok) throw Error(saved.error || 'Khong the luu du lieu cua buoc nay.');
+      state = saved;
+      status(`Da luu cau hinh buoc ${step}.`, true);
+    }
+
+    async function continueWizard() {
+      validateStep(wizardStep);
+      await persistCurrentStep(wizardStep);
+      setWizardStep(wizardStep + 1);
+    }
+
     function renderReview() {
       const data = readState();
       $('review').innerHTML = [
@@ -1179,23 +1203,69 @@
     });
 
     document.querySelectorAll('.wizard-step').forEach(button => {
-      button.onclick = () => {
+      button.onclick = async () => {
         const next = Number(button.dataset.step);
         try {
-          if (next > wizardStep) validateStep(wizardStep);
-          setWizardStep(next);
+          if (next > wizardStep) await continueWizard();
+          else setWizardStep(next);
         } catch (error) { status(`Loi: ${error.message}`, false, true); }
       };
     });
 
     $('previous-step').onclick = () => setWizardStep(wizardStep - 1);
-    $('next-step').onclick = () => {
-      try { validateStep(wizardStep); setWizardStep(wizardStep + 1); }
+    $('next-step').onclick = async () => {
+      try { await continueWizard(); }
       catch (error) { status(`Loi: ${error.message}`, false, true); }
     };
     $('add-oa').addEventListener('click', () => setTimeout(renderExtensionOptions));
     document.addEventListener('change', (event) => {
       if (event.target.matches('.route [data-field="inboundTargetType"]')) renderInboundOptions();
+    });
+
+    async function persistEmployee(card, { quiet = false } = {}) {
+      const employee = {
+        ...fields(card),
+        active: card.querySelector('[data-field="active"]').value === 'true',
+        _previousId: card.dataset.persistedEmployeeId || ''
+      };
+      if (!employee.id || !employee.name) throw Error('Nhap ma va ten nhan vien truoc khi luu.');
+      const response = await fetch('/api/settings/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
+        body: JSON.stringify(employee)
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || 'Khong the luu nhan vien.');
+      card.dataset.persistedEmployeeId = employee.id;
+      state = data;
+      renderExtensionOptions();
+      if (!quiet) status(`Da luu nhan vien ${employee.name}.`, true);
+    }
+
+    // Create the employee on the server before adding it to the form. This
+    // prevents an extension/employee reference from blocking the final save.
+    $('add-employee').onclick = async () => {
+      const employee = { id: `employee-${Date.now()}`, name: 'Nhan vien moi', department: '', active: true };
+      try {
+        const response = await fetch('/api/settings/employees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-config-password': $('admin').value },
+          body: JSON.stringify(employee)
+        });
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || 'Khong the tao nhan vien.');
+        state = data;
+        appendEmployee(employee);
+        const card = $('employees').lastElementChild;
+        card.dataset.persistedEmployeeId = employee.id;
+        renderExtensionOptions();
+        status(`Da tao va luu ngay nhan vien ${employee.name}.`, true);
+      } catch (error) { status(`Loi: ${error.message}`, false, true); }
+    };
+
+    document.addEventListener('change', (event) => {
+      if (!event.target.matches('.employee [data-field]')) return;
+      persistEmployee(event.target.closest('.employee')).catch(error => status(`Loi: ${error.message}`, false, true));
     });
 
     $('save').onclick = async () => {
@@ -1222,4 +1292,3 @@
   <script type="module" src="/floating-softphone.js"></script>
 </body>
 </html>
-

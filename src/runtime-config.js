@@ -94,6 +94,55 @@ export function saveTelephonyConfig(input) {
   return publicTelephonyConfig();
 }
 
+// The settings wizard saves each layer independently.  A draft must accept a
+// temporarily incomplete relationship (for example an extension entered
+// before its employee) and must not reload FreeSWITCH until the final save.
+export function saveTelephonyDraft(input) {
+  const previousAccounts = new Map(saved.accounts.map((account) => [account.id, account]));
+  const previousExtensions = new Map(saved.extensions.map((extension) => [extension.id, extension]));
+  const next = normalizeConfig({
+    accounts: Array.isArray(input.accounts) ? input.accounts : saved.accounts,
+    employees: Array.isArray(input.employees) ? input.employees : saved.employees,
+    extensions: Array.isArray(input.extensions) ? input.extensions : saved.extensions,
+  });
+  next.accounts = next.accounts.map((account) => ({
+    ...account,
+    accessToken: account.accessToken || previousAccounts.get(account.id)?.accessToken || '',
+  }));
+  next.extensions = next.extensions.map((extension) => ({
+    ...extension,
+    password: extension.password || previousExtensions.get(extension.id)?.password || '',
+  }));
+  writeAtomic(CONFIG_FILE, `${JSON.stringify(next, null, 2)}\n`, 0o600);
+  saved = next;
+  return publicTelephonyConfig();
+}
+
+/**
+ * Persist an employee independently of the full PBX configuration.  This is
+ * intentionally tolerant of an extension that references an employee not yet
+ * saved: it lets the Settings wizard repair that relationship one record at a
+ * time instead of rejecting the entire form.
+ */
+export function upsertEmployee(input) {
+  const previousId = String(input?._previousId || '').trim();
+  const employee = {
+    id: String(input?.id || '').trim(),
+    name: String(input?.name || '').trim(),
+    department: String(input?.department || '').trim(),
+    active: input?.active !== false && input?.active !== 'false',
+  };
+  if (!/^[a-zA-Z0-9_-]{1,48}$/.test(employee.id) || !employee.name) {
+    throw new Error('Nhân viên phải có mã hợp lệ và tên hiển thị.');
+  }
+
+  const existing = saved.employees.filter((item) => item.id !== employee.id && item.id !== previousId);
+  const next = { ...saved, employees: [...existing, employee] };
+  writeAtomic(CONFIG_FILE, `${JSON.stringify(next, null, 2)}\n`, 0o600);
+  saved = normalizeConfig(next);
+  return publicTelephonyConfig();
+}
+
 export function syncFreeSwitchRuntime() {
   writeFreeSwitchRuntime(saved);
 }

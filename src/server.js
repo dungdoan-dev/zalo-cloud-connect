@@ -7,7 +7,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { encodePcmToUlaw } from './codec.js';
 import { SipCaller } from './sip-caller.js';
 import { buildSipTarget, ZccClient } from './zcc-client.js';
-import { getZaloAccount, getZaloConfig, publicTelephonyConfig, saveTelephonyConfig, syncFreeSwitchRuntime } from './runtime-config.js';
+import { getZaloAccount, getZaloConfig, publicTelephonyConfig, saveTelephonyConfig, saveTelephonyDraft, syncFreeSwitchRuntime, upsertEmployee } from './runtime-config.js';
 import { storeWebhook } from './webhook-store.js';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -294,7 +294,27 @@ async function handleRequest(req, res) {
       return;
     }
     const body = await readJson(req);
-    sendJson(res, { ok: true, ...saveTelephonyConfig({ accounts: body.accounts, extensions: body.extensions }) });
+    sendJson(res, { ok: true, ...saveTelephonyConfig({ accounts: body.accounts, employees: body.employees, extensions: body.extensions }) });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/settings/employees') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoáº·c thiáº¿u máº­t kháº©u quáº£n trá»‹.' }, 401);
+      return;
+    }
+    const employee = await readJson(req);
+    sendJson(res, { ok: true, ...upsertEmployee(employee) });
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/settings/draft') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoáº·c thiáº¿u máº­t kháº©u quáº£n trá»‹.' }, 401);
+      return;
+    }
+    const body = await readJson(req);
+    sendJson(res, { ok: true, ...saveTelephonyDraft(body) });
     return;
   }
 
