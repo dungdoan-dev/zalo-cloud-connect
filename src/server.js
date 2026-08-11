@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -11,14 +11,26 @@ import { SipCaller } from './sip-caller.js';
 import { buildSipTarget, ZccClient } from './zcc-client.js';
 import { getZaloAccount, getZaloConfig, getTelephonyConfig, publicTelephonyConfig, saveTelephonyConfig, saveTelephonyDraft, syncFreeSwitchRuntime, upsertEmployee } from './runtime-config.js';
 import { storeWebhook } from './webhook-store.js';
+import {
+  configureWhatsAppSip,
+  fetchAndStoreWhatsAppSipPassword,
+  getWhatsAppSipSettings,
+  isValidWhatsAppWebhookVerifyToken,
+  publicWhatsAppCallingConfig,
+  saveWhatsAppCallingConfig,
+  syncWhatsAppFreeSwitchRuntime,
+  verifyWhatsAppWebhookSignature,
+} from './whatsapp-calling.js';
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const INDEX_PATH = join(ROOT_DIR, '../public/index.html');
 const SOFTPHONE_PATH = join(ROOT_DIR, '../public/softphone.html');
 const SETTINGS_PATH = join(ROOT_DIR, '../public/settings.html');
+const WHATSAPP_PATH = join(ROOT_DIR, '../public/whatsapp.html');
 const PUBLIC_DIR = resolve(ROOT_DIR, '../public');
 const SIP_JS_DIR = resolve(ROOT_DIR, '../node_modules/sip.js/lib');
 const MAX_JSON_BYTES = 64 * 1024;
+const MAX_WEBHOOK_BYTES = 1024 * 1024;
 
 const config = Object.freeze({
   port: readIntegerEnv('PORT', 3000),
@@ -37,6 +49,26 @@ const config = Object.freeze({
 const configAdminPassword = process.env.CONFIG_ADMIN_PASSWORD || '';
 const webhookSecret = process.env.WEBHOOK_SECRET || '';
 const execFileAsync = promisify(execFile);
+
+function reloadFreeSwitchXml(afterReload = () => {}) {
+  const fsCli = process.env.FREESWITCH_CLI || '/usr/local/freeswitch/bin/fs_cli';
+  if (!existsSync(fsCli)) {
+    afterReload();
+    return;
+  }
+  execFile(fsCli, ['-x', 'reloadxml'], { timeout: 15_000 }, () => afterReload());
+}
+
+function reloadWhatsAppSofiaProfile() {
+  const fsCli = process.env.FREESWITCH_CLI || '/usr/local/freeswitch/bin/fs_cli';
+  if (!existsSync(fsCli)) return;
+  // A WhatsApp SIP gateway reads its TLS hostname/password when the Sofia
+  // profile starts. Do this best-effort and keep the HTTP save path responsive
+  // when the local developer machine does not run FreeSWITCH.
+  reloadFreeSwitchXml(() => {
+    execFile(fsCli, ['-x', 'sofia profile whatsapp restart'], { timeout: 15_000 }, () => {});
+  });
+}
 
 function rewriteSipTransport(data, from, to) {
   if (Buffer.isBuffer(data)) return data;
@@ -132,22 +164,63 @@ function safeStaticPath(root, requestPath) {
   return path;
 }
 
-async function readJson(req) {
+async function readBody(req, maxBytes = MAX_JSON_BYTES) {
   const chunks = [];
   let totalBytes = 0;
 
   for await (const chunk of req) {
-    totalBytes += chunk.length;
-    if (totalBytes > MAX_JSON_BYTES) throw new Error('Request body vượt quá 64 KB.');
+    totalBytes += Buffer.byteLength(chunk);
+    if (totalBytes > maxBytes) throw new Error(`Request body vượt quá ${Math.floor(maxBytes / 1024)} KB.`);
     chunks.push(chunk);
   }
 
-  const raw = Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);
+}
+
+function parseJsonBody(rawBody) {
+  const raw = rawBody.toString('utf8');
   if (!raw) return {};
   try {
     return JSON.parse(raw);
   } catch {
     throw new Error('Request body không phải JSON hợp lệ.');
+  }
+}
+
+async function readJson(req) {
+  return parseJsonBody(await readBody(req));
+}
+
+function getWhatsAppWebhookEventId(payload) {
+  const value = payload?.entry?.[0]?.changes?.[0]?.value || {};
+  return value.messages?.[0]?.id || value.statuses?.[0]?.id || value.calls?.[0]?.id || null;
+}
+
+function redactWhatsAppSecrets(value) {
+  if (Array.isArray(value)) return value.map(redactWhatsAppSecrets);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !/(?:password|access[_-]?token|app[_-]?secret)/i.test(key))
+    .map(([key, item]) => [key, redactWhatsAppSecrets(item)]));
+}
+
+function validateWhatsAppRoute(input, telephony) {
+  if (input?.enabled !== true && input?.enabled !== 'true') return;
+  const targetType = input?.inboundTargetType === 'employee' ? 'employee' : 'extension';
+  const targetId = String(input?.inboundTargetId || '').trim();
+  if (!targetId) return; // Detailed required-field validation lives in the config module.
+
+  if (targetType === 'extension') {
+    if (!telephony.extensions.some((extension) => extension.id === targetId)) {
+      throw new Error(`Không tìm thấy máy nhánh WhatsApp ${targetId}.`);
+    }
+    return;
+  }
+
+  const employee = telephony.employees.find((item) => item.id === targetId && item.active !== false);
+  if (!employee) throw new Error(`Không tìm thấy nhân viên WhatsApp ${targetId} đang hoạt động.`);
+  if (!telephony.extensions.some((extension) => extension.employeeId === targetId)) {
+    throw new Error(`Nhân viên ${employee.name} chưa được gán máy nhánh để nhận cuộc gọi WhatsApp.`);
   }
 }
 
@@ -222,6 +295,43 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/whatsapp') {
+    sendFile(res, WHATSAPP_PATH);
+    return;
+  }
+
+  // Meta calls this challenge before it enables a WhatsApp webhook. It must
+  // return the challenge as plain text, never JSON or HTML.
+  if (req.method === 'GET' && url.pathname === '/webhooks/whatsapp') {
+    const mode = url.searchParams.get('hub.mode');
+    const verifyToken = url.searchParams.get('hub.verify_token');
+    const challenge = url.searchParams.get('hub.challenge');
+    if (mode === 'subscribe' && challenge && isValidWhatsAppWebhookVerifyToken(verifyToken)) {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(challenge);
+      return;
+    }
+    sendJson(res, { error: 'WhatsApp webhook verification failed.' }, 403);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/webhooks/whatsapp') {
+    const rawBody = await readBody(req, MAX_WEBHOOK_BYTES);
+    if (!verifyWhatsAppWebhookSignature(rawBody, req.headers['x-hub-signature-256'])) {
+      sendJson(res, { error: 'WhatsApp webhook signature is invalid.' }, 401);
+      return;
+    }
+    const payload = parseJsonBody(rawBody);
+    storeWebhook(payload, {
+      provider: 'whatsapp',
+      eventId: getWhatsAppWebhookEventId(payload) || payload?.entry?.[0]?.id || null,
+      userAgent: req.headers['user-agent'] || null,
+      contentType: req.headers['content-type'] || null,
+    });
+    sendJson(res, { ok: true });
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/webhooks/zalo') {
     sendJson(res, { ok: true, endpoint: 'zalo-webhook' });
     return;
@@ -280,6 +390,7 @@ async function handleRequest(req, res) {
       appId: zalo.appId,
       oaId: zalo.oaId,
       accounts: telephony.accounts,
+      whatsapp: publicWhatsAppCallingConfig(),
       assignedAccountId,
       extensionProfile: extensionProfile && employee ? {
         id: extensionProfile.id,
@@ -295,6 +406,64 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === '/api/whatsapp/settings') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoặc thiếu mật khẩu quản trị.' }, 401);
+      return;
+    }
+    if (req.method === 'GET') {
+      sendJson(res, publicWhatsAppCallingConfig());
+      return;
+    }
+
+    const candidate = await readJson(req);
+    const telephony = getTelephonyConfig();
+    validateWhatsAppRoute(candidate, telephony);
+    const whatsapp = saveWhatsAppCallingConfig(candidate);
+    syncWhatsAppFreeSwitchRuntime(telephony);
+    reloadWhatsAppSofiaProfile();
+    sendJson(res, { ok: true, whatsapp });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/whatsapp/sip-settings') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoặc thiếu mật khẩu quản trị.' }, 401);
+      return;
+    }
+    sendJson(res, { ok: true, settings: redactWhatsAppSecrets(await getWhatsAppSipSettings()) });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/whatsapp/sip-settings') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoặc thiếu mật khẩu quản trị.' }, 401);
+      return;
+    }
+    const candidate = await readJson(req);
+    if (Object.keys(candidate).length) {
+      validateWhatsAppRoute(candidate, getTelephonyConfig());
+      saveWhatsAppCallingConfig(candidate);
+      syncWhatsAppFreeSwitchRuntime(getTelephonyConfig());
+      reloadWhatsAppSofiaProfile();
+    }
+    await configureWhatsAppSip();
+    sendJson(res, { ok: true });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/whatsapp/sip-password') {
+    if (!isAdmin(req)) {
+      sendJson(res, { error: 'Sai hoặc thiếu mật khẩu quản trị.' }, 401);
+      return;
+    }
+    const whatsapp = await fetchAndStoreWhatsAppSipPassword();
+    syncWhatsAppFreeSwitchRuntime(getTelephonyConfig());
+    reloadWhatsAppSofiaProfile();
+    sendJson(res, { ok: true, whatsapp });
+    return;
+  }
+
   if ((req.method === 'GET' || req.method === 'PUT') && url.pathname === '/api/settings') {
     if (!isAdmin(req)) {
       sendJson(res, { error: 'Sai hoặc thiếu mật khẩu quản trị.' }, 401);
@@ -305,7 +474,14 @@ async function handleRequest(req, res) {
       return;
     }
     const body = await readJson(req);
-    sendJson(res, { ok: true, ...saveTelephonyConfig({ accounts: body.accounts, employees: body.employees, extensions: body.extensions }) });
+    validateWhatsAppRoute(publicWhatsAppCallingConfig(), {
+      employees: Array.isArray(body.employees) ? body.employees : getTelephonyConfig().employees,
+      extensions: Array.isArray(body.extensions) ? body.extensions : getTelephonyConfig().extensions,
+    });
+    const telephony = saveTelephonyConfig({ accounts: body.accounts, employees: body.employees, extensions: body.extensions });
+    syncWhatsAppFreeSwitchRuntime(getTelephonyConfig());
+    reloadFreeSwitchXml();
+    sendJson(res, { ok: true, ...telephony });
     return;
   }
 
@@ -515,7 +691,10 @@ mediaServer.on('connection', (client) => {
   client.on('error', removeClient);
 });
 
+// Write both provider runtimes before the ZCC sync triggers FreeSWITCH reloadxml.
+syncWhatsAppFreeSwitchRuntime(getTelephonyConfig());
 syncFreeSwitchRuntime();
+reloadWhatsAppSofiaProfile();
 server.listen(config.port, () => {
   console.log('\n🚀 Zalo Cloud Connect UI');
   console.log(`   http://localhost:${config.port}`);
@@ -524,3 +703,7 @@ server.listen(config.port, () => {
   console.log(`   Call engine: ${config.callEngine}`);
   if (config.callEngine === 'freeswitch') console.log(`   Softphone: http://localhost:${config.port}/softphone\n`);
 });
+
+// Exported for integration tests. The normal `npm run server` entrypoint still
+// starts this same HTTP server immediately.
+export { server };

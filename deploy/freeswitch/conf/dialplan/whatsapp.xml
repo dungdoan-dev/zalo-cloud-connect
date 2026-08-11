@@ -1,0 +1,2 @@
+<!-- Safe bootstrap dialplan. Node replaces the runtime copy after startup. -->
+<include/>

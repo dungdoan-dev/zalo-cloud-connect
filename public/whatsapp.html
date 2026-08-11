@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp Business Calling | SimlyDent</title>
+  <style>
+    :root {
+      --bg: #07090e;
+      --panel: #121624;
+      --panel-2: #1a2032;
+      --line: rgba(255,255,255,.09);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --blue: #1677ff;
+      --blue-glow: rgba(22,119,255,.3);
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #f43f5e;
+      --radius: 16px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text); background:
+        radial-gradient(circle at 50% -10%, rgba(22,119,255,.18), transparent 37rem),
+        var(--bg);
+    }
+    header {
+      height: 72px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; border-bottom: 1px solid var(--line); background: rgba(10,13,21,.86);
+      backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 5;
+    }
+    .brand { display: flex; gap: 12px; align-items: center; color: inherit; text-decoration: none; }
+    .brand-mark {
+      width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px;
+      font-size: 21px; background: linear-gradient(135deg, #1f86ff, #0050c7); box-shadow: 0 8px 24px var(--blue-glow);
+    }
+    .brand strong { display: block; font-size: 16px; }
+    .brand small { color: var(--muted); font-size: 12px; }
+    nav { display: flex; gap: 8px; flex-wrap: wrap; }
+    nav a {
+      color: var(--muted); padding: 9px 13px; border-radius: 10px; text-decoration: none; font-size: 13px; font-weight: 650;
+    }
+    nav a:hover, nav a.active { color: white; background: rgba(22,119,255,.14); border: 1px solid rgba(22,119,255,.35); }
+    main { width: min(1160px, calc(100% - 40px)); margin: 32px auto 72px; display: grid; gap: 20px; }
+    .card {
+      padding: 26px; background: rgba(18,22,36,.96); border: 1px solid var(--line); border-radius: var(--radius);
+      box-shadow: 0 18px 38px rgba(0,0,0,.22);
+    }
+    .hero { position: relative; overflow: hidden; }
+    .hero::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: linear-gradient(var(--blue), var(--green)); }
+    h1, h2 { margin: 0; } h1 { font-size: 25px; letter-spacing: -.5px; } h2 { font-size: 16px; }
+    p { color: var(--muted); line-height: 1.6; font-size: 14px; }
+    .eyebrow { color: #60a5fa; text-transform: uppercase; letter-spacing: .1em; font-weight: 800; font-size: 11px; margin-bottom: 9px; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .section-title { padding-bottom: 15px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    label { display: block; color: var(--muted); font-weight: 700; font-size: 12px; margin: 0 0 7px; }
+    label .optional { color: #64748b; font-weight: 500; }
+    input, select {
+      width: 100%; height: 43px; border: 1px solid var(--line); border-radius: 10px; outline: 0;
+      padding: 0 12px; color: var(--text); background: #0e1320; font: inherit; font-size: 14px;
+    }
+    input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+    input::placeholder { color: #64748b; }
+    select option { background: #121624; }
+    .input-password { position: relative; }
+    .input-password input { padding-right: 48px; }
+    .reveal {
+      position: absolute; right: 4px; top: 4px; height: 35px; min-width: 38px; border: 0; border-radius: 8px;
+      color: var(--muted); background: transparent; cursor: pointer;
+    }
+    .reveal:hover { color: white; background: rgba(255,255,255,.08); }
+    .switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text); font-size: 14px; font-weight: 700; }
+    .switch input { width: 44px; height: 24px; accent-color: var(--blue); }
+    .help { margin: 7px 0 0; color: #64748b; font-size: 12px; line-height: 1.5; }
+    .notice {
+      padding: 15px 16px; border-radius: 12px; border: 1px solid rgba(245,158,11,.42);
+      background: rgba(245,158,11,.1); color: #fde68a; font-size: 13px; line-height: 1.55;
+    }
+    .notice strong { color: #fef3c7; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      min-height: 42px; border: 1px solid transparent; border-radius: 10px; padding: 0 15px; color: white;
+      font: inherit; font-weight: 750; font-size: 13px; cursor: pointer; transition: .16s ease;
+    }
+    button:hover { transform: translateY(-1px); } button:disabled { opacity: .55; cursor: wait; transform: none; }
+    .primary { background: linear-gradient(135deg, #1677ff, #0057d4); box-shadow: 0 8px 20px var(--blue-glow); }
+    .secondary { background: var(--panel-2); border-color: var(--line); }
+    .secondary:hover { border-color: rgba(255,255,255,.24); }
+    .warning { background: rgba(245,158,11,.13); color: #fcd34d; border-color: rgba(245,158,11,.33); }
+    #status { display: none; padding: 13px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--muted); font-size: 13px; }
+    #status.visible { display: block; } #status.ok { color: #a7f3d0; border-color: rgba(16,185,129,.38); background: rgba(16,185,129,.1); }
+    #status.error { color: #fecdd3; border-color: rgba(244,63,94,.4); background: rgba(244,63,94,.1); }
+    .secret-state { display: inline-flex; margin-top: 7px; color: #6ee7b7; font-size: 11px; font-weight: 700; }
+    .secret-state.absent { color: #94a3b8; }
+    #inspect-output {
+      min-height: 50px; max-height: 300px; overflow: auto; margin: 0; padding: 14px; border-radius: 10px;
+      background: #0a0e17; border: 1px solid var(--line); color: #a5b4fc; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .hidden { display: none !important; }
+    @media (max-width: 760px) {
+      header { height: auto; min-height: 66px; padding: 12px 18px; align-items: flex-start; gap: 12px; flex-direction: column; }
+      main { width: min(100% - 24px, 1160px); margin-top: 16px; } .card { padding: 19px; }
+      .grid, .grid.two { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .row { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">
+      <span class="brand-mark">☎</span>
+      <span><strong>SimlyDent Call Center</strong><small>WhatsApp Business Calling</small></span>
+    </a>
+    <nav aria-label="Điều hướng">
+      <a href="/">Call Center</a>
+      <a href="/softphone">Softphone</a>
+      <a href="/settings">Cấu hình Zalo &amp; máy nhánh</a>
+      <a class="active" href="/whatsapp">WhatsApp Calling</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="card hero">
+      <div class="eyebrow">Meta Cloud API + SIP</div>
+      <h1>Cấu hình WhatsApp Business Calling</h1>
+      <p>
+        Cấu hình riêng cho WhatsApp để không dùng chung token, SIP profile hoặc luồng gọi với Zalo Cloud Connect.
+        Token và mật khẩu SIP đã lưu sẽ không bao giờ được trả về trình duyệt.
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="row section-title">
+        <div>
+          <h2>Quyền quản trị</h2>
+          <p>Nhập mật khẩu quản trị để tải hoặc cập nhật cấu hình.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" style="width:min(540px,100%)">
+          <label for="adminPassword">Mật khẩu quản trị</label>
+          <div class="input-password">
+            <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Không lưu trong trình duyệt">
+            <button class="reveal" type="button" data-reveal="adminPassword" aria-label="Hiện/ẩn mật khẩu">◉</button>
+          </div>
+        </div>
+        <div class="actions"><button id="loadButton" class="secondary" type="button">Tải cấu hình</button></div>
+      </div>
+      <div id="status" role="status" aria-live="polite"></div>
+    </section>
+
+    <form id="configForm" class="hidden">
+      <section class="card">
+        <div class="row section-title">
+          <div>
+            <h2>Trạng thái và định danh</h2>
+            <p>Chỉ bật sau khi Meta đã cho phép Calling và máy chủ có FQDN/certificate công khai.</p>
+          </div>
+          <label class="switch"><input id="enabled" type="checkbox"> Bật WhatsApp Calling</label>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="id">Mã cấu hình</label>
+            <input id="id" autocomplete="off" placeholder="whatsapp-default">
+            <p class="help">Dùng để phân biệt nhà cung cấp khi có nhiều kênh gọi.</p>
+          </div>
+          <div class="field">
+            <label for="name">Tên hiển thị</label>
+            <input id="name" autocomplete="organization" placeholder="WhatsApp CSKH">
+          </div>
+          <div class="field">
+            <label for="graphApiVersion">Graph API version</label>
+            <input id="graphApiVersion" autocomplete="off" placeholder="v25.0">
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>WhatsApp Business / Meta Cloud API</h2>
+          <p>Nhập các ID theo WhatsApp Manager hoặc Meta App Dashboard. Số doanh nghiệp phải ở định dạng E.164, ví dụ <code>+14155550123</code>.</p>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="phoneNumberId">Phone Number ID</label>
+            <input id="phoneNumberId" inputmode="numeric" autocomplete="off" placeholder="123456789012345">
+          </div>
+          <div class="field">
+            <label for="wabaId">WhatsApp Business Account ID <span class="optional">(WABA)</span></label>
+            <input id="wabaId" inputmode="numeric" autocomplete="off" placeholder="123456789012345">
+          </div>
+          <div class="field">
+            <label for="businessPhoneE164">Số WhatsApp Business</label>
+            <input id="businessPhoneE164" autocomplete="tel" placeholder="+14155550123">
+          </div>
+          <div class="field">
+            <label for="accessToken">Meta access token</label>
+            <div class="input-password">
+              <input id="accessToken" type="password" autocomplete="new-password" placeholder="Để trống để giữ token đã lưu">
+              <button class="reveal" type="button" data-reveal="accessToken" aria-label="Hiện/ẩn access token">◉</button>
+            </div>
+            <span id="accessTokenState" class="secret-state absent">Chưa có token đã lưu</span>
+          </div>
+          <div class="field">
+            <label for="appSecret">Meta App Secret</label>
+            <div class="input-password">
+              <input id="appSecret" type="password" autocomplete="new-password" placeholder="Để trống để giữ App Secret đã lưu">
+              <button class="reveal" type="button" data-reveal="appSecret" aria-label="Hiện/ẩn App Secret">◉</button>
+            </div>
+            <span id="appSecretState" class="secret-state absent">Chưa có App Secret đã lưu</span>
+          </div>
+          <div class="field">
+            <label for="webhookVerifyToken">Webhook verify token</label>
+            <div class="input-password">
+              <input id="webhookVerifyToken" type="password" autocomplete="new-password" placeholder="Để trống để giữ token đã lưu">
+              <button class="reveal" type="button" data-reveal="webhookVerifyToken" aria-label="Hiện/ẩn webhook verify token">◉</button>
+            </div>
+            <span id="webhookVerifyTokenState" class="secret-state absent">Chưa có verify token đã lưu</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Meta SIP và định tuyến cuộc gọi vào</h2>
+          <p>Meta kết nối SIP qua TLS tới FQDN công khai của bạn. Không nhập IP private hoặc URL ngrok vào trường FQDN này.</p>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="sipHostname">SIP FQDN công khai</label>
+            <input id="sipHostname" autocomplete="url" placeholder="voice.example.com">
+          </div>
+          <div class="field">
+            <label for="sipPort">Cổng SIP TLS</label>
+            <input id="sipPort" type="number" min="1" max="65535" inputmode="numeric" placeholder="5061">
+          </div>
+          <div class="field">
+            <label for="sipUserPassword">Meta SIP password</label>
+            <div class="input-password">
+              <input id="sipUserPassword" type="password" autocomplete="new-password" placeholder="Lấy từ Meta, để trống để giữ">
+              <button class="reveal" type="button" data-reveal="sipUserPassword" aria-label="Hiện/ẩn SIP password">◉</button>
+            </div>
+            <span id="sipUserPasswordState" class="secret-state absent">Chưa có SIP password đã lưu</span>
+          </div>
+          <div class="field">
+            <label for="inboundTargetType">Loại đích nhận cuộc gọi</label>
+            <select id="inboundTargetType">
+              <option value="extension">Máy nhánh</option>
+              <option value="employee">Nhân viên</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="inboundTargetId">Đích nhận cuộc gọi</label>
+            <select id="inboundTargetId"><option value="">Tải danh sách máy nhánh/nhân viên trước</option></select>
+            <p class="help">Chọn nhân viên sẽ gọi đồng thời các máy nhánh của nhân viên đó.</p>
+          </div>
+          <div class="field">
+            <label class="switch"><input id="webhookDelivery" type="checkbox"> Bật webhook lifecycle từ Meta</label>
+            <p class="help">Webhook endpoint: <code>/webhooks/whatsapp</code>. Meta yêu cầu HTTPS và chữ ký <code>X-Hub-Signature-256</code>.</p>
+          </div>
+        </div>
+        <div id="vnRestriction" class="notice hidden" style="margin-top:18px">
+          <strong>Số doanh nghiệp +84: chỉ nhận cuộc gọi vào.</strong>
+          Theo giới hạn Meta hiện hành, Business-initiated Calling không hỗ trợ số WhatsApp Business có mã quốc gia Việt Nam. Người dùng vẫn có thể gọi vào số WhatsApp Business khi SIP inbound được cấu hình đúng.
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <div>
+            <h2>Áp dụng cấu hình</h2>
+            <p>Lưu cấu hình sẽ tạo lại runtime FreeSWITCH; không tự gọi API Meta. Các nút bên phải thực hiện API Meta khi bạn chủ động bấm.</p>
+          </div>
+          <div class="actions">
+            <button id="saveButton" class="primary" type="submit">Lưu &amp; nạp FreeSWITCH</button>
+            <button id="syncButton" class="secondary" type="button">Đồng bộ SIP với Meta</button>
+            <button id="fetchPasswordButton" class="warning" type="button">Lấy Meta SIP password</button>
+            <button id="inspectButton" class="secondary" type="button">Kiểm tra Meta settings</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Kết quả kiểm tra Meta</h2>
+          <p>Chỉ hiển thị dữ liệu phản hồi an toàn. Secret không được render tại đây.</p>
+        </div>
+        <pre id="inspect-output">Chưa kiểm tra Meta settings.</pre>
+      </section>
+    </form>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const secretFields = ["accessToken", "appSecret", "webhookVerifyToken", "sipUserPassword"];
+      let telephony = { employees: [], extensions: [] };
+      let loaded = {};
+
+      function adminHeaders(json = false) {
+        const headers = { "x-config-password": $("adminPassword").value };
+        if (json) headers["Content-Type"] = "application/json";
+        return headers;
+      }
+
+      async function request(url, options = {}) {
+        const response = await fetch(url, options);
+        const contentType = response.headers.get("content-type") || "";
+        const data = contentType.includes("application/json") ? await response.json() : { message: await response.text() };
+        if (!response.ok) throw new Error(data.error || data.message || "Yêu cầu không thành công.");
+        return data;
+      }
+
+      function setStatus(message, kind = "") {
+        const el = $("status");
+        el.textContent = message;
+        el.className = "visible " + kind;
+      }
+
+      function setBusy(button, busy, label) {
+        if (!button) return;
+        if (busy) {
+          button.dataset.label = button.textContent;
+          button.textContent = label || "Đang xử lý...";
+          button.disabled = true;
+        } else {
+          button.textContent = button.dataset.label || button.textContent;
+          button.disabled = false;
+        }
+      }
+
+      function setSecretState(id, present) {
+        const el = $(id + "State");
+        if (!el) return;
+        el.textContent = present ? "Đã lưu an toàn trên máy chủ" : "Chưa có giá trị đã lưu";
+        el.classList.toggle("absent", !present);
+      }
+
+      function getConfig(data) {
+        return data.whatsapp || data.config || data;
+      }
+
+      function setValue(id, value) {
+        const el = $(id);
+        if (el && value !== undefined && value !== null) el.value = String(value);
+      }
+
+      function populateTargets(selected = "") {
+        const type = $("inboundTargetType").value;
+        const select = $("inboundTargetId");
+        const candidates = type === "employee"
+          ? telephony.employees.filter((item) => item.active !== false && item.active !== "false")
+          : telephony.extensions;
+        select.replaceChildren();
+        const blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = "Chưa định tuyến";
+        select.append(blank);
+        candidates.forEach((item) => {
+          const option = document.createElement("option");
+          option.value = item.id;
+          if (type === "employee") {
+            const extensionIds = telephony.extensions.filter((extension) => extension.employeeId === item.id).map((extension) => extension.id);
+            option.textContent = (item.name || item.id) + " — " + (extensionIds.length ? "máy " + extensionIds.join(", ") : "chưa có máy nhánh");
+          } else {
+            const employee = telephony.employees.find((candidate) => candidate.id === item.employeeId);
+            option.textContent = item.id + (item.name ? " — " + item.name : "") + (employee ? " (" + employee.name + ")" : "");
+          }
+          select.append(option);
+        });
+        select.value = selected || "";
+      }
+
+      function updateRestriction() {
+        const phone = $("businessPhoneE164").value.trim().replace(/[\\s().-]/g, "");
+        $("vnRestriction").classList.toggle("hidden", !phone.startsWith("+84"));
+      }
+
+      function readForm() {
+        return {
+          enabled: $("enabled").checked,
+          id: $("id").value.trim(),
+          name: $("name").value.trim(),
+          phoneNumberId: $("phoneNumberId").value.trim(),
+          wabaId: $("wabaId").value.trim(),
+          businessPhoneE164: $("businessPhoneE164").value.trim(),
+          graphApiVersion: $("graphApiVersion").value.trim(),
+          accessToken: $("accessToken").value,
+          appSecret: $("appSecret").value,
+          webhookVerifyToken: $("webhookVerifyToken").value,
+          sipHostname: $("sipHostname").value.trim(),
+          sipPort: Number($("sipPort").value || 5061),
+          sipUserPassword: $("sipUserPassword").value,
+          webhookDelivery: $("webhookDelivery").checked,
+          inboundTargetType: $("inboundTargetType").value,
+          inboundTargetId: $("inboundTargetId").value
+        };
+      }
+
+      function populateForm(config) {
+        loaded = config || {};
+        ["id", "name", "phoneNumberId", "wabaId", "businessPhoneE164", "graphApiVersion", "sipHostname", "sipPort"].forEach((id) => setValue(id, loaded[id]));
+        $("enabled").checked = Boolean(loaded.enabled);
+        $("webhookDelivery").checked = loaded.webhookDelivery !== false;
+        $("inboundTargetType").value = loaded.inboundTargetType || "extension";
+        populateTargets(loaded.inboundTargetId || "");
+        secretFields.forEach((id) => {
+          $(id).value = "";
+          setSecretState(id, Boolean(loaded["has" + id.charAt(0).toUpperCase() + id.slice(1)]));
+        });
+        updateRestriction();
+        $("configForm").classList.remove("hidden");
+      }
+
+      async function load() {
+        const button = $("loadButton");
+        setBusy(button, true, "Đang tải...");
+        try {
+          const [settings, routing] = await Promise.all([
+            request("/api/whatsapp/settings", { headers: adminHeaders() }),
+            request("/api/settings", { headers: adminHeaders() })
+          ]);
+          telephony = { employees: routing.employees || [], extensions: routing.extensions || [] };
+          populateForm(getConfig(settings));
+          setStatus("Đã tải cấu hình WhatsApp Calling. Secret hiện có chỉ được báo trạng thái, không hiển thị giá trị.", "ok");
+        } catch (error) {
+          setStatus("Lỗi khi tải: " + error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      async function save() {
+        const button = $("saveButton");
+        setBusy(button, true, "Đang lưu...");
+        try {
+          await persistForm();
+          setStatus("Đã lưu cấu hình và yêu cầu nạp lại runtime FreeSWITCH.", "ok");
+        } catch (error) {
+          setStatus("Lỗi khi lưu: " + error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      async function persistForm() {
+        const data = await request("/api/whatsapp/settings", {
+          method: "PUT", headers: adminHeaders(true), body: JSON.stringify(readForm())
+        });
+        populateForm(getConfig(data));
+        return data;
+      }
+
+      async function syncSip() {
+        const button = $("syncButton");
+        setBusy(button, true, "Đang đồng bộ...");
+        try {
+          // Meta reads the configuration stored server-side. Persist first so
+          // a just-entered token, hostname, or route is not accidentally skipped.
+          await persistForm();
+          const data = await request("/api/whatsapp/sip-settings", {
+            method: "POST", headers: adminHeaders(true), body: JSON.stringify({})
+          });
+          $("inspect-output").textContent = JSON.stringify(data, null, 2);
+          setStatus("Meta SIP settings đã được gửi. Kiểm tra kết quả bên dưới và Meta App Dashboard.", "ok");
+        } catch (error) {
+          setStatus("Không thể đồng bộ Meta SIP: " + error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      async function fetchSipPassword() {
+        const button = $("fetchPasswordButton");
+        setBusy(button, true, "Đang lấy...");
+        try {
+          await persistForm();
+          const data = await request("/api/whatsapp/sip-password", {
+            method: "POST", headers: adminHeaders(true), body: JSON.stringify({})
+          });
+          setSecretState("sipUserPassword", true);
+          $("sipUserPassword").value = "";
+          $("inspect-output").textContent = JSON.stringify(data, null, 2);
+          setStatus("Đã lấy và lưu Meta SIP password trên máy chủ. Giá trị không được hiển thị lại.", "ok");
+        } catch (error) {
+          setStatus("Không thể lấy Meta SIP password: " + error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      async function inspect() {
+        const button = $("inspectButton");
+        setBusy(button, true, "Đang kiểm tra...");
+        try {
+          const data = await request("/api/whatsapp/sip-settings", { headers: adminHeaders() });
+          $("inspect-output").textContent = JSON.stringify(data, null, 2);
+          setStatus("Đã nhận Meta settings.", "ok");
+        } catch (error) {
+          setStatus("Không thể kiểm tra Meta settings: " + error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      document.querySelectorAll("[data-reveal]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const input = $(button.dataset.reveal);
+          input.type = input.type === "password" ? "text" : "password";
+        });
+      });
+      $("loadButton").addEventListener("click", load);
+      $("adminPassword").addEventListener("keydown", (event) => { if (event.key === "Enter") load(); });
+      $("inboundTargetType").addEventListener("change", () => populateTargets());
+      $("businessPhoneE164").addEventListener("input", updateRestriction);
+      $("configForm").addEventListener("submit", (event) => { event.preventDefault(); save(); });
+      $("syncButton").addEventListener("click", syncSip);
+      $("fetchPasswordButton").addEventListener("click", fetchSipPassword);
+      $("inspectButton").addEventListener("click", inspect);
+    })();
+  </script>
+</body>
+</html>

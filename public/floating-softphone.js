@@ -6,6 +6,7 @@ let phone;
 let callActive = false;
 let callTimerInterval = null;
 let callStartTime = null;
+let latestRuntime = null;
 
 // Audio FX synthesizer (zero external dependencies)
 class SoftphoneAudioFX {
@@ -155,6 +156,14 @@ function mount() {
 
         <!-- Form Inputs Body -->
         <div id="zcc-form-body" class="zcc-form-body">
+          <div class="zcc-field">
+            <label for="zcc-provider">Kênh gọi</label>
+            <select id="zcc-provider">
+              <option value="zcc">Zalo Cloud Connect</option>
+            </select>
+            <small id="zcc-provider-hint" class="zcc-provider-hint"></small>
+          </div>
+
           <div class="zcc-field">
             <label for="zcc-target-type">Loại đích gọi</label>
             <select id="zcc-target-type">
@@ -597,6 +606,12 @@ function mount() {
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+    .zcc-provider-hint {
+      min-height: 13px;
+      color: #fbbf24;
+      font-size: 10px;
+      line-height: 1.3;
+    }
     .zcc-input-wrap {
       position: relative;
       display: flex;
@@ -811,7 +826,7 @@ function ui() {
     'float', 'float-toggle', 'toggle-dot', 'toggle-text', 'toggle-timer',
     'float-panel', 'panel-close', 'dialpad-toggle', 'status',
     'call-card', 'avatar', 'display-name', 'live-timer', 'audio-wave',
-    'form-body', 'target-type', 'callee', 'clear-callee',
+    'form-body', 'provider', 'provider-hint', 'target-type', 'callee', 'clear-callee',
     'consent-actions', 'check-consent', 'request-consent',
     'dialpad', 'call', 'answer', 'decline', 'mute', 'hold', 'incall-actions',
     'message', 'remote-audio'
@@ -910,6 +925,7 @@ function setCardState(state) {
     audioFX.stopRingtone();
     startTimer();
   }
+  if (state === 'idle') u.call.querySelector('span').textContent = `Gọi ${providerLabel()}`;
 }
 
 function status(text, error = false) {
@@ -934,11 +950,60 @@ function runtimeFor(extension = readSettings().extension) {
   });
 }
 
+function selectedProvider() {
+  return ui().provider?.value || 'zcc';
+}
+
+function providerLabel(provider = selectedProvider()) {
+  return provider === 'whatsapp' ? 'WhatsApp' : 'Zalo';
+}
+
+function refreshProviderUi(runtime = latestRuntime) {
+  const u = ui();
+  if (!u.provider) return;
+  const selected = u.provider.value || 'zcc';
+  const whatsapp = runtime?.whatsapp;
+  u.provider.replaceChildren();
+  u.provider.add(new Option('Zalo Cloud Connect', 'zcc'));
+
+  if (whatsapp?.enabled) {
+    const text = whatsapp.outboundSupported
+      ? `WhatsApp Business (${whatsapp.name || 'Calling'})`
+      : 'WhatsApp Business (chỉ nhận cuộc gọi)';
+    const option = new Option(text, 'whatsapp');
+    option.disabled = !whatsapp.outboundSupported;
+    u.provider.add(option);
+  }
+
+  u.provider.value = selected === 'whatsapp' && whatsapp?.outboundSupported ? selected : 'zcc';
+  const isWhatsApp = u.provider.value === 'whatsapp';
+  const isPhone = u.targetType.value === 'phone';
+  u.targetType.replaceChildren();
+  u.targetType.add(new Option(isWhatsApp ? 'Số WhatsApp (E.164)' : 'Số điện thoại (Zalo Telephony)', 'phone'));
+  if (!isWhatsApp) u.targetType.add(new Option('Zalo User ID', 'user_id'));
+  u.targetType.value = isPhone || isWhatsApp ? 'phone' : 'user_id';
+  u.targetType.disabled = isWhatsApp;
+  u.consentActions.hidden = isWhatsApp || u.targetType.value !== 'phone';
+  u.callee.placeholder = isWhatsApp ? '+14155550123' : (u.targetType.value === 'phone' ? '0372626121 hoặc +84372626121' : 'Zalo User ID');
+  u.providerHint.textContent = whatsapp?.enabled && !whatsapp.outboundSupported
+    ? whatsapp.outboundRestriction || 'Số WhatsApp Business +84 chỉ nhận cuộc gọi theo chính sách Meta.'
+    : '';
+  if (!callActive) u.call.querySelector('span').textContent = `Gọi ${providerLabel()}`;
+}
+
 function zccPhoneTarget(value) {
   const compact = String(value || '').trim().replace(/[\s().-]/g, '');
   const target = compact.startsWith('0') ? `+84${compact.slice(1)}` : compact.startsWith('84') ? `+${compact}` : compact;
   if (!/^\+84\d{8,10}$/.test(target)) throw new Error('Số điện thoại ZCC phải có dạng +84xxxxxxxxx.');
   return target;
+}
+
+function whatsappPhoneTarget(value) {
+  const compact = String(value || '').trim().replace(/[\s().-]/g, '');
+  if (!/^\+[1-9]\d{7,14}$/.test(compact)) {
+    throw new Error('Số WhatsApp phải nhập theo E.164, ví dụ +14155550123.');
+  }
+  return compact;
 }
 
 async function post(path, body) {
@@ -962,6 +1027,8 @@ async function attachAudio() {
 async function connect() {
   const saved = readSettings();
   const runtime = await runtimeFor(saved.extension);
+  latestRuntime = runtime;
+  refreshProviderUi(runtime);
   if (!saved.extension || !saved.password || !runtime.pbx?.wssUrl || !runtime.pbx?.sipDomain) {
     status('Vào ⚙ để thiết lập extension', true);
     return;
@@ -1066,9 +1133,12 @@ document.querySelectorAll('.zcc-dial-btn').forEach((btn) => {
 
 u.targetType.onchange = () => {
   const isPhone = u.targetType.value === 'phone';
-  u.consentActions.hidden = !isPhone;
-  u.callee.placeholder = isPhone ? '0372626121 hoặc +84372626121' : 'Zalo User ID';
+  const isWhatsApp = selectedProvider() === 'whatsapp';
+  u.consentActions.hidden = isWhatsApp || !isPhone;
+  u.callee.placeholder = isWhatsApp ? '+14155550123' : (isPhone ? '0372626121 hoặc +84372626121' : 'Zalo User ID');
 };
+
+u.provider.onchange = () => refreshProviderUi(latestRuntime);
 
 u.call.onclick = async () => {
   try {
@@ -1076,6 +1146,20 @@ u.call.onclick = async () => {
     if (callActive) return phone?.hangup();
     if (!phone?.isConnected()) throw new Error('Tổng đài chưa sẵn sàng.');
     const runtime = await runtimeFor();
+    latestRuntime = runtime;
+    refreshProviderUi(runtime);
+    if (selectedProvider() === 'whatsapp') {
+      const whatsapp = runtime.whatsapp;
+      if (!whatsapp?.enabled) throw new Error('WhatsApp Business Calling chưa được cấu hình trên server.');
+      if (!whatsapp.outboundSupported) {
+        throw new Error(whatsapp.outboundRestriction || 'Tài khoản WhatsApp này chỉ nhận cuộc gọi.');
+      }
+      const callee = whatsappPhoneTarget(u.callee.value);
+      await phone.call(sipUri(callee, runtime.pbx.sipDomain), {
+        extraHeaders: ['X-Call-Provider: whatsapp', `X-Provider-Account-ID: ${whatsapp.id}`]
+      });
+      return;
+    }
     const accountId = runtime.assignedAccountId;
     if (!accountId) throw new Error('Extension chưa được gán Zalo OA.');
     const targetType = u.targetType.value;

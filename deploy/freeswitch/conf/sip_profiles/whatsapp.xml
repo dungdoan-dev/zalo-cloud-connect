@@ -1,0 +1,70 @@
+<!--
+  WhatsApp Business Calling SIP profile.
+
+  Meta connects to this profile over SIP/TLS on 5061.  Before enabling the
+  WhatsApp account, replace FreeSWITCH's agent.pem with a certificate whose
+  SAN/CN matches $${whatsapp_sip_hostname}.  Meta does not support mutual TLS,
+  so this profile intentionally does not request a client certificate.
+-->
+<profile name="whatsapp">
+  <aliases/>
+
+  <gateways>
+    <!--
+      Meta challenges an outbound INVITE with 407. mod_sofia retries it using
+      these per-business-phone credentials; this gateway never REGISTERs.
+    -->
+    <gateway name="whatsapp">
+      <param name="proxy" value="wa.meta.vc:5061;transport=tls"/>
+      <param name="realm" value="wa.meta.vc"/>
+      <param name="username" value="$${whatsapp_business_phone}"/>
+      <param name="password" value="$${whatsapp_sip_password}"/>
+      <param name="from-domain" value="$${whatsapp_sip_hostname}"/>
+      <param name="register" value="false"/>
+    </gateway>
+  </gateways>
+
+  <domains>
+    <domain name="all" alias="false" parse="true"/>
+  </domains>
+
+  <settings>
+    <param name="debug" value="0"/>
+    <param name="sip-trace" value="no"/>
+    <param name="context" value="default"/>
+    <param name="dialplan" value="XML"/>
+
+    <param name="sip-ip" value="$${local_ip_v4}"/>
+    <param name="rtp-ip" value="$${local_ip_v4}"/>
+    <param name="ext-sip-ip" value="$${external_sip_ip}"/>
+    <param name="ext-rtp-ip" value="$${external_rtp_ip}"/>
+
+    <!-- TLS only: port 5061 must be reachable from the Internet. -->
+    <param name="sip-port" value="5060"/>
+    <param name="tls" value="true"/>
+    <param name="tls-only" value="true"/>
+    <param name="tls-sip-port" value="$${whatsapp_sip_port}"/>
+    <param name="tls-cert-dir" value="$${certs_dir}"/>
+    <param name="tls-verify-date" value="true"/>
+    <!-- Meta explicitly does not use mutual TLS. -->
+    <param name="tls-verify-policy" value="none"/>
+    <param name="tls-version" value="$${sip_tls_version}"/>
+    <param name="tls-ciphers" value="$${sip_tls_ciphers}"/>
+
+    <!-- WhatsApp uses WebRTC media. OPUS is primary; PCMU/PCMA are enabled. -->
+    <param name="inbound-codec-prefs" value="OPUS,PCMU,PCMA"/>
+    <param name="outbound-codec-prefs" value="OPUS,PCMU,PCMA"/>
+    <param name="inbound-late-negotiation" value="true"/>
+    <param name="disable-transcoding" value="false"/>
+
+    <!--
+      Meta's caller is not a local FreeSWITCH directory user. Restrict TCP/5061
+      at the cloud firewall to Meta SIP source ranges before enabling this
+      profile; do not expose it as a general unauthenticated SIP service.
+    -->
+    <param name="auth-calls" value="false"/>
+    <param name="accept-blind-reg" value="false"/>
+    <param name="rtp-timeout-sec" value="300"/>
+    <param name="rtp-hold-timeout-sec" value="1800"/>
+  </settings>
+</profile>

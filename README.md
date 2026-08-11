@@ -102,3 +102,13 @@ Test dùng mock `fetch`, không gửi request thật và không cần token.
 Xem hướng dẫn đầy đủ từ tạo EC2, cài FreeSWITCH/Node.js, cấu hình ZCC, HTTPS,
 webhook, systemd, theo dõi log đến GitHub Actions CI/CD tại
 [docs/SETUP-AND-DEPLOY.md](docs/SETUP-AND-DEPLOY.md).
+
+## WhatsApp Business Calling
+
+WhatsApp Business Calling dung cau hinh Meta/SIP rieng tai `/whatsapp`; token,
+App Secret va SIP password khong duoc tra ve trinh duyet. Huong dan DNS/TLS,
+webhook HMAC va FreeSWITCH nam tai
+[docs/WHATSAPP-BUSINESS-CALLING.md](docs/WHATSAPP-BUSINESS-CALLING.md).
+
+> So WhatsApp Business `+84` hien chi ho tro cuoc goi vao do khach hang khoi tao;
+> giao dien se khong cho goi ra tu tai khoan nay.

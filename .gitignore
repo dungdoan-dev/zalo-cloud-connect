@@ -8,3 +8,10 @@ deploy/key/
 *.pem
 *.key
 .github/*.local
+
+# Runtime data written on the server. These files can contain SIP credentials,
+# Meta app secrets or user webhook payloads and must never be committed.
+data/whatsapp-calling.json
+data/webhooks.ndjson
+data/freeswitch/whatsapp-vars.xml
+data/freeswitch/whatsapp-dialplan.xml

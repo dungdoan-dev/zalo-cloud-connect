@@ -1,0 +1,13 @@
+<!--
+  Safe bootstrap values. The Node application replaces the runtime copy at
+  /opt/simlydent/data/freeswitch/whatsapp-vars.xml when WhatsApp Calling is
+  configured. Do not put a real Meta SIP password in this tracked file.
+-->
+<include>
+  <X-PRE-PROCESS cmd="set" data="whatsapp_enabled=false"/>
+  <X-PRE-PROCESS cmd="set" data="whatsapp_account_id=whatsapp-default"/>
+  <X-PRE-PROCESS cmd="set" data="whatsapp_business_phone=+10000000000"/>
+  <X-PRE-PROCESS cmd="set" data="whatsapp_sip_hostname=voice.example.invalid"/>
+  <X-PRE-PROCESS cmd="set" data="whatsapp_sip_port=5061"/>
+  <X-PRE-PROCESS cmd="set" data="whatsapp_sip_password="/>
+</include>

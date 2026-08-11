@@ -11,6 +11,7 @@ sudo install -d -o simlydent -g simlydent "$APP_DIR"
 sudo install -d -o simlydent -g simlydent "$APP_DIR/data"
 sudo install -d -o simlydent -g freeswitch -m 2770 "$APP_DIR/data/freeswitch"
 sudo install -d -o freeswitch -g freeswitch "$FS_DIR/var/lib/freeswitch/recordings/zcc"
+sudo install -d -o freeswitch -g freeswitch "$FS_DIR/var/lib/freeswitch/recordings/whatsapp"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is required on the server (install Node.js 20+ first)." >&2
@@ -21,13 +22,38 @@ sudo install -m 0644 deploy/systemd/simlydent.service /etc/systemd/system/simlyd
 sudo install -m 0644 deploy/systemd/freeswitch.service /etc/systemd/system/freeswitch.service
 
 sudo install -m 0644 deploy/freeswitch/conf/sip_profiles/zcc.xml "$FS_CONF/sip_profiles/zcc.xml"
+sudo install -m 0644 deploy/freeswitch/conf/sip_profiles/whatsapp.xml "$FS_CONF/sip_profiles/whatsapp.xml"
 sudo install -d "$FS_CONF/directory/default"
 sudo install -m 0644 deploy/freeswitch/conf/directory/default/1001.xml "$FS_CONF/directory/default/1001.xml"
 sudo ln -sfn "$APP_DIR/data/freeswitch/directory.xml" "$FS_CONF/directory/default/00_simlydent.xml"
 sudo ln -sfn "$APP_DIR/data/freeswitch/dialplan.xml" "$FS_CONF/dialplan/default/00_simlydent.xml"
+sudo ln -sfn "$APP_DIR/data/freeswitch/whatsapp-dialplan.xml" "$FS_CONF/dialplan/default/01_whatsapp.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/default/05_zcc_inbound.xml "$FS_CONF/dialplan/default/05_zcc_inbound.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/default/10_zcc_outbound.xml "$FS_CONF/dialplan/default/10_zcc_outbound.xml"
 sudo install -m 0644 deploy/freeswitch/conf/dialplan/zcc.xml "$FS_CONF/dialplan/zcc.xml"
+
+# Keep a valid include target on the first deployment. The Node app owns the
+# runtime copy and will replace it with the encrypted WhatsApp SIP credential
+# values only after the administrator saves that configuration.
+WHATSAPP_RUNTIME_VARS="$APP_DIR/data/freeswitch/whatsapp-vars.xml"
+if [ ! -f "$WHATSAPP_RUNTIME_VARS" ]; then
+  sudo install -o simlydent -g freeswitch -m 0640 \
+    deploy/freeswitch/conf/whatsapp-vars.xml "$WHATSAPP_RUNTIME_VARS"
+fi
+WHATSAPP_RUNTIME_DIALPLAN="$APP_DIR/data/freeswitch/whatsapp-dialplan.xml"
+if [ ! -f "$WHATSAPP_RUNTIME_DIALPLAN" ]; then
+  sudo install -o simlydent -g freeswitch -m 0640 \
+    deploy/freeswitch/conf/dialplan/whatsapp.xml "$WHATSAPP_RUNTIME_DIALPLAN"
+fi
+if [ ! -f "$FS_CONF/vars.xml" ]; then
+  echo "FreeSWITCH vars.xml was not found at $FS_CONF/vars.xml." >&2
+  exit 1
+fi
+if ! sudo grep -qF "$WHATSAPP_RUNTIME_VARS" "$FS_CONF/vars.xml"; then
+  sudo sed -i \
+    "/<include>/a\\  <X-PRE-PROCESS cmd=\"include\" data=\"$WHATSAPP_RUNTIME_VARS\"/>" \
+    "$FS_CONF/vars.xml"
+fi
 
 # Keep the vanilla internal profile, but make its WebRTC ICE candidate public.
 # The browser connects from the Internet; advertising the EC2 private address
@@ -71,6 +97,7 @@ for attempt in $(seq 1 30); do
   if sudo /usr/local/freeswitch/bin/fs_cli -x status >/dev/null 2>&1; then
     sudo /usr/local/freeswitch/bin/fs_cli -x reloadxml
     sudo /usr/local/freeswitch/bin/fs_cli -x 'sofia profile zcc restart' || true
+    sudo /usr/local/freeswitch/bin/fs_cli -x 'sofia profile whatsapp restart' || true
     break
   fi
   if [ "$attempt" -eq 30 ]; then
@@ -81,4 +108,8 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 sudo systemctl restart simlydent.service
+# simlydent writes the runtime WhatsApp vars/dialplan during startup, so load
+# them after its first start as well as on subsequent deploys.
+sudo /usr/local/freeswitch/bin/fs_cli -x reloadxml
+sudo /usr/local/freeswitch/bin/fs_cli -x 'sofia profile whatsapp restart' || true
 sudo systemctl --no-pager --full status freeswitch.service simlydent.service
